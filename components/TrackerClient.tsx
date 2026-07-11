@@ -146,7 +146,7 @@ function MacTimePicker({
       </div>
 
       <div className="flex items-stretch rounded-lg border border-ink/15 bg-white/40">
-        <div className="flex items-center gap-[2px] px-3 font-serif text-xl font-semibold tabular-nums text-ink">
+        <div className="flex items-center gap-[2px] px-3 font-serif text-xl font-bold tabular-nums text-ink">
           <button
             type="button"
             tabIndex={0}
@@ -498,11 +498,11 @@ export default function TrackerClient() {
         <div className="flex items-baseline justify-between border-t border-ink/15 pt-4">
           <div className="flex flex-col gap-1">
             <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Total slept</span>
-            <span className="font-serif text-2xl font-semibold tabular-nums text-ink">{fmtDuration(stats.totalMin)}</span>
+            <span className="font-serif text-2xl font-bold tabular-nums text-ink">{fmtDuration(stats.totalMin)}</span>
           </div>
           <div className="flex flex-col items-end gap-1">
             <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Naps</span>
-            <span className="font-serif text-2xl font-semibold tabular-nums text-ink">{stats.napCount}</span>
+            <span className="font-serif text-2xl font-bold tabular-nums text-ink">{stats.napCount}</span>
           </div>
         </div>
       </section>
@@ -592,7 +592,7 @@ function SleepingCard({
       <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">
         Asleep since {fmtTime(startedAt)}
       </p>
-      <p className="font-serif text-6xl font-semibold tabular-nums text-ink">
+      <p className="font-serif text-6xl font-bold tabular-nums text-ink">
         {elapsedH > 0 ? `${elapsedH}:` : ''}
         {String(elapsedM).padStart(2, '0')}
         <span className="text-3xl font-medium text-ink/40">:{String(elapsedS).padStart(2, '0')}</span>
@@ -653,7 +653,7 @@ function AwakeCard({
       <div className="flex flex-col items-center gap-3">
         <span className={chipClass}>{STATUS_LABEL[prediction.status] ?? prediction.status}</span>
         {prediction.nextSleepAt ? (
-          <p className="font-serif text-5xl font-semibold tabular-nums text-ink">
+          <p className="font-serif text-5xl font-bold tabular-nums text-ink">
             Next <span className="font-normal text-ink/50">~</span>
             {fmtTime(prediction.nextSleepAt)}
           </p>

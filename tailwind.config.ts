@@ -15,10 +15,17 @@ const config: Config = {
         sage: '#9CA88E',
       },
       fontFamily: {
-        // Self-hosted via next/font (see app/layout.tsx) — matches the
-        // typography used at rsvp.arbibe.dev (mili-rsvp).
-        serif: ['var(--font-serif)', '"Frank Ruhl Libre"', 'serif'],
-        sans: ['var(--font-sans)', 'Assistant', 'system-ui', 'sans-serif'],
+        // Self-hosted via next/font (see app/layout.tsx). Frank Ruhl Libre
+        // is the elegant editorial serif rsvp.arbibe.dev falls back to for
+        // Latin text; Inter is a clean, iOS-SF-Pro-like sans for UI text.
+        serif: ['var(--font-serif)', 'Georgia', '"Times New Roman"', 'serif'],
+        sans: [
+          'var(--font-sans)',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'system-ui',
+          'sans-serif',
+        ],
       },
     },
   },

@@ -1,18 +1,21 @@
 import type { Metadata, Viewport } from 'next'
-import { Noto_Serif_Hebrew, Heebo } from 'next/font/google'
+import { Frank_Ruhl_Libre, Inter } from 'next/font/google'
 import Providers from '@/components/Providers'
 import './globals.css'
 
-const notoSerifHebrew = Noto_Serif_Hebrew({
+// Frank Ruhl Libre — the elegant editorial serif rsvp.arbibe.dev falls back
+// to for Latin text; used here directly since this app is English-only.
+const frankRuhlLibre = Frank_Ruhl_Libre({
   subsets: ['latin'],
-  weight: ['500', '600'],
+  weight: ['500', '700'],
   variable: '--font-serif',
   display: 'swap',
 })
 
-const heebo = Heebo({
+// Inter — closest clean, geometric Google Font to iOS's SF Pro for UI text.
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
+  weight: ['400', '500', '600'],
   variable: '--font-sans',
   display: 'swap',
 })
@@ -40,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${notoSerifHebrew.variable} ${heebo.variable}`}>
+    <html lang="en" className={`${frankRuhlLibre.variable} ${inter.variable}`}>
       <body className="bg-cream text-ink font-sans min-h-dvh antialiased">
         <Providers>{children}</Providers>
       </body>
