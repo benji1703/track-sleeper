@@ -1,12 +1,6 @@
 import type { Metadata, Viewport } from 'next'
-import { Playfair_Display } from 'next/font/google'
 import Providers from '@/components/Providers'
 import './globals.css'
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  variable: '--font-playfair',
-})
 
 export const metadata: Metadata = {
   title: 'Track Sleeper',
@@ -31,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={playfair.variable}>
+    <html lang="en">
       <body className="bg-cream text-ink min-h-dvh antialiased">
         <Providers>{children}</Providers>
       </body>

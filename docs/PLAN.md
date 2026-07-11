@@ -66,3 +66,12 @@ Deterministic wake-window model by age (months, from `birth_date`):
 3. **designer (sonnet)** — pages + components, Hermès design, iPhone-first
 4. **Fable (main)** — `npm run build`, code review, model sanity checks, fix, commit
 5. User: create Supabase project, Google OAuth creds, `vercel` link + env, deploy
+
+## Changelog
+- Baby sharing (caregivers): `baby_caregivers` table (`supabase/migrations/002_caregivers.sql`),
+  `lib/babyAccess.ts` (`getBabyForEmail`) resolves owner-or-caregiver access; all baby/session
+  API routes use it. New `POST/DELETE /api/baby/share` manage caregivers by email (owner only).
+  Retro-start: `POST /api/sessions {action:'start', started_at}` allows starting a session up to
+  24h in the past, with an overlap guard against existing closed sessions. Added
+  `lib/sleepInfo.ts` — evidence-based sleep guidance by age (wake windows, naps, sourced from
+  AASM/NSF/AAP/NHS).

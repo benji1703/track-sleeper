@@ -1,11 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import clsx from 'clsx'
 import type { SleepSession, SleepType } from '@/types'
 import { dailyStats } from '@/lib/sleepModel'
 import { fmtTime, fmtDuration, fmtDate } from '@/lib/format'
 import BottomNav from '@/components/BottomNav'
+import { PageSkeleton, LoadErrorCard } from '@/components/Skeleton'
 import { TZ, dayBoundsInTz, dateISOInTz } from '@/components/timeUtils'
 
 const DAYS_BACK = 14
@@ -82,13 +84,21 @@ export default function HistoryClient() {
     })
   }, [sessions])
 
+  const daysWithData = useMemo(() => days.filter((d) => d.segments.length > 0), [days])
+  const hasAnySessions = sessions.length > 0
+
   const weekAvg = useMemo(() => {
-    const lastWeek = days.slice(0, 7)
+    const lastWeek = days.slice(0, 7).filter((d) => d.segments.length > 0)
     if (lastWeek.length === 0) return { avgTotalMin: 0, avgNaps: 0 }
     const totalMin = lastWeek.reduce((sum, d) => sum + d.stats.totalMin, 0)
     const naps = lastWeek.reduce((sum, d) => sum + d.stats.napCount, 0)
     return { avgTotalMin: totalMin / lastWeek.length, avgNaps: naps / lastWeek.length }
   }, [days])
+
+  const weekDaysWithData = useMemo(
+    () => days.slice(0, 7).filter((d) => d.segments.length > 0).length,
+    [days]
+  )
 
   function openDetail(session: SleepSession) {
     setSelected(session)
@@ -155,6 +165,25 @@ export default function HistoryClient() {
     }
   }
 
+  if (loading) {
+    return <PageSkeleton variant="history" />
+  }
+
+  if (error && sessions.length === 0) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 pb-28">
+        <LoadErrorCard
+          message={error}
+          onRetry={() => {
+            setLoading(true)
+            load()
+          }}
+        />
+        <BottomNav />
+      </main>
+    )
+  }
+
   return (
     <main className="mx-auto min-h-dvh max-w-md px-6 pb-28 pt-10">
       <header className="mb-8 flex items-baseline justify-between">
@@ -174,22 +203,35 @@ export default function HistoryClient() {
         </p>
       )}
 
-      <section className="mb-8 grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1 rounded-2xl border border-ink/15 px-5 py-4">
-          <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">7-day avg sleep</span>
-          <span className="font-serif text-3xl text-ink">{fmtDuration(weekAvg.avgTotalMin)}</span>
-        </div>
-        <div className="flex flex-col gap-1 rounded-2xl border border-ink/15 px-5 py-4">
-          <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Avg naps/day</span>
-          <span className="font-serif text-3xl text-ink">{weekAvg.avgNaps.toFixed(1)}</span>
-        </div>
-      </section>
+      {weekDaysWithData >= 3 && (
+        <section className="mb-8 grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1 rounded-2xl border border-ink/15 px-5 py-4">
+            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">7-day avg sleep</span>
+            <span className="font-serif text-3xl text-ink">{fmtDuration(weekAvg.avgTotalMin)}</span>
+          </div>
+          <div className="flex flex-col gap-1 rounded-2xl border border-ink/15 px-5 py-4">
+            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Avg naps/day</span>
+            <span className="font-serif text-3xl text-ink">{weekAvg.avgNaps.toFixed(1)}</span>
+          </div>
+        </section>
+      )}
 
-      {loading ? (
-        <p className="text-[11px] tracking-[0.2em] uppercase text-ink/40">Loading</p>
+      {!hasAnySessions ? (
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-ink/15 px-6 py-10 text-center">
+          <h2 className="font-serif text-2xl text-ink">No sleep recorded yet</h2>
+          <p className="text-[13px] text-ink/50">
+            Start a session to see it show up here.
+          </p>
+          <Link
+            href="/"
+            className="mt-2 text-[11px] tracking-[0.2em] uppercase text-orange"
+          >
+            Go to Track
+          </Link>
+        </div>
       ) : (
         <ul className="flex flex-col gap-5">
-          {days.map((day) => (
+          {daysWithData.map((day) => (
             <li key={day.dayISO} className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between">
                 <span className="text-[13px] text-ink/70">{fmtDate(day.dayStart)}</span>
@@ -218,7 +260,7 @@ export default function HistoryClient() {
       {selected && (
         <div className="fixed inset-0 z-50 flex items-end bg-ink/20" onClick={closeDetail}>
           <div
-            className="w-full rounded-t-2xl border-t border-ink/15 bg-cream p-6"
+            className="mx-auto w-full max-w-md rounded-t-2xl border-t border-ink/15 bg-cream p-6"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -268,7 +310,7 @@ export default function HistoryClient() {
         <div className="fixed inset-0 z-50 flex items-end bg-ink/20" onClick={() => setShowAdd(false)}>
           <form
             onSubmit={handleAddManual}
-            className="flex w-full flex-col gap-6 rounded-t-2xl border-t border-ink/15 bg-cream p-6"
+            className="mx-auto flex w-full max-w-md flex-col gap-6 rounded-t-2xl border-t border-ink/15 bg-cream p-6"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
             onClick={(e) => e.stopPropagation()}
           >

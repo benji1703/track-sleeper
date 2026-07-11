@@ -2,19 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getBabyForEmail } from '@/lib/babyAccess'
+import { rateLimit } from '@/lib/rateLimit'
 import type { SleepSession, SleepType } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
-async function getOwnedBabyId(email: string): Promise<string | null> {
-  const { data, error } = await supabaseAdmin
-    .from('babies')
-    .select('id')
-    .eq('owner_email', email)
-    .maybeSingle()
+const MAX_RETRO_HOURS = 24
 
-  if (error) throw error
-  return data?.id ?? null
+async function getAccessibleBabyId(email: string): Promise<string | null> {
+  const result = await getBabyForEmail(email)
+  return result?.baby.id ?? null
 }
 
 export async function GET(req: NextRequest) {
@@ -25,12 +23,16 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const now = new Date()
-  const from = searchParams.get('from') ?? new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString()
-  const to = searchParams.get('to') ?? now.toISOString()
+  // Parse + re-serialize the range params: `from` is interpolated into a
+  // PostgREST .or() filter string, so it must never carry raw user input.
+  const fromMs = Date.parse(searchParams.get('from') ?? '')
+  const toMs = Date.parse(searchParams.get('to') ?? '')
+  const from = new Date(Number.isNaN(fromMs) ? now.getTime() - 14 * 24 * 60 * 60 * 1000 : fromMs).toISOString()
+  const to = new Date(Number.isNaN(toMs) ? now.getTime() : toMs).toISOString()
 
   let babyId: string | null
   try {
-    babyId = await getOwnedBabyId(session.user.email)
+    babyId = await getAccessibleBabyId(session.user.email)
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'db_error' }, { status: 500 })
@@ -62,6 +64,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  if (!rateLimit(`sessions:${session.user.email.toLowerCase()}`, 30, 60_000)) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
+  }
+
   let body: {
     action?: string
     type?: SleepType
@@ -82,7 +88,7 @@ export async function POST(req: NextRequest) {
 
   let babyId: string | null
   try {
-    babyId = await getOwnedBabyId(session.user.email)
+    babyId = await getAccessibleBabyId(session.user.email)
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'db_error' }, { status: 500 })
@@ -112,9 +118,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'already_sleeping' }, { status: 409 })
     }
 
+    const nowMs = Date.now()
+    let startedAt = new Date(nowMs).toISOString()
+
+    if (body.started_at !== undefined) {
+      if (Number.isNaN(Date.parse(body.started_at))) {
+        return NextResponse.json({ error: 'started_at must be a valid timestamp' }, { status: 400 })
+      }
+      const startedMs = Date.parse(body.started_at)
+      if (startedMs > nowMs) {
+        return NextResponse.json({ error: 'started_at must be in the past' }, { status: 400 })
+      }
+      if (nowMs - startedMs > MAX_RETRO_HOURS * 60 * 60 * 1000) {
+        return NextResponse.json({ error: 'started_at_too_old' }, { status: 400 })
+      }
+
+      // Normalize to ISO before using in filters/insert; limit(1) because
+      // multiple sessions may overlap the retro window (maybeSingle would 500).
+      const startedIso = new Date(startedMs).toISOString()
+      const { data: overlapping, error: overlapError } = await supabaseAdmin
+        .from('sleep_sessions')
+        .select('id')
+        .eq('baby_id', babyId)
+        .not('ended_at', 'is', null)
+        .gt('ended_at', startedIso)
+        .lt('started_at', new Date(nowMs).toISOString())
+        .limit(1)
+
+      if (overlapError) {
+        console.error(overlapError)
+        return NextResponse.json({ error: 'db_error' }, { status: 500 })
+      }
+      if (overlapping && overlapping.length > 0) {
+        return NextResponse.json({ error: 'overlaps_existing' }, { status: 409 })
+      }
+
+      startedAt = startedIso
+    }
+
     const { data, error } = await supabaseAdmin
       .from('sleep_sessions')
-      .insert({ baby_id: babyId, started_at: new Date().toISOString(), type: body.type ?? 'nap' })
+      .insert({ baby_id: babyId, started_at: startedAt, type: body.type ?? 'nap' })
       .select()
       .single()
 

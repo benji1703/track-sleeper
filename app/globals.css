@@ -11,5 +11,11 @@
   body {
     @apply bg-cream text-ink antialiased;
     min-height: 100dvh;
+    font-variant-numeric: lining-nums;
+  }
+
+  .font-serif {
+    font-variant-numeric: lining-nums;
+    letter-spacing: -0.01em;
   }
 }

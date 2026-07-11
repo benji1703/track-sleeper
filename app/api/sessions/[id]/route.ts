@@ -2,25 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getBabyForEmail } from '@/lib/babyAccess'
+import { rateLimit } from '@/lib/rateLimit'
 import type { SleepSession, SleepType } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
-async function findOwnedSession(email: string, sessionId: string) {
-  const { data: baby, error: babyError } = await supabaseAdmin
-    .from('babies')
-    .select('id')
-    .eq('owner_email', email)
-    .maybeSingle()
-
-  if (babyError) throw babyError
-  if (!baby) return null
+async function findAccessibleSession(email: string, sessionId: string) {
+  const result = await getBabyForEmail(email)
+  if (!result) return null
 
   const { data: existing, error: sessionError } = await supabaseAdmin
     .from('sleep_sessions')
     .select('*')
     .eq('id', sessionId)
-    .eq('baby_id', baby.id)
+    .eq('baby_id', result.baby.id)
     .maybeSingle()
 
   if (sessionError) throw sessionError
@@ -31,6 +27,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!rateLimit(`sessions:${session.user.email.toLowerCase()}`, 30, 60_000)) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
   }
 
   let body: {
@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   let existing: SleepSession | null
   try {
-    existing = await findOwnedSession(session.user.email, params.id)
+    existing = await findAccessibleSession(session.user.email, params.id)
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'db_error' }, { status: 500 })
@@ -85,6 +85,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from('sleep_sessions')
     .update(updates)
     .eq('id', params.id)
+    .eq('baby_id', existing.baby_id)
     .select()
     .single()
 
@@ -102,9 +103,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  if (!rateLimit(`sessions:${session.user.email.toLowerCase()}`, 30, 60_000)) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
+  }
+
   let existing: SleepSession | null
   try {
-    existing = await findOwnedSession(session.user.email, params.id)
+    existing = await findAccessibleSession(session.user.email, params.id)
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'db_error' }, { status: 500 })
@@ -114,7 +119,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: 'not_found' }, { status: 404 })
   }
 
-  const { error } = await supabaseAdmin.from('sleep_sessions').delete().eq('id', params.id)
+  const { error } = await supabaseAdmin
+    .from('sleep_sessions')
+    .delete()
+    .eq('id', params.id)
+    .eq('baby_id', existing.baby_id)
 
   if (error) {
     console.error(error)

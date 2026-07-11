@@ -3,10 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import type { Baby, SleepSession, SleepType } from '@/types'
-import { predictNextSleep, dailyStats } from '@/lib/sleepModel'
+import { predictNextSleep, dailyStats, ageInMonths } from '@/lib/sleepModel'
+import { sleepInfoForAge, SLEEP_SOURCES, WAKE_WINDOW_CAVEAT } from '@/lib/sleepInfo'
 import { fmtTime, fmtDuration } from '@/lib/format'
 import BottomNav from '@/components/BottomNav'
+import { PageSkeleton, LoadErrorCard } from '@/components/Skeleton'
 import { TZ, MS_PER_MIN, dayBoundsInTz, dateISOInTz, localHourInTz } from '@/components/timeUtils'
+
+function toDatetimeLocal(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`
+}
 
 export default function TrackerClient() {
   const [baby, setBaby] = useState<Baby | null | undefined>(undefined)
@@ -19,6 +28,10 @@ export default function TrackerClient() {
   )
   const [onboardName, setOnboardName] = useState('')
   const [onboardBirth, setOnboardBirth] = useState('')
+  const [retroOpen, setRetroOpen] = useState(false)
+  const [retroValue, setRetroValue] = useState('')
+  const [retroAdjusted, setRetroAdjusted] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   function isNightHour(hour: number) {
     return hour >= 19 || hour < 6
@@ -30,8 +43,11 @@ export default function TrackerClient() {
       const babyRes = await fetch('/api/baby')
       if (!babyRes.ok) throw new Error('Could not load baby profile.')
       const babyData: { baby: Baby | null } = await babyRes.json()
-      setBaby(babyData.baby)
 
+      // Fetch sessions BEFORE committing any state: setting `baby` early
+      // renders the awake card with empty data ("Ready when you are")
+      // instead of the skeleton.
+      let loadedSessions: SleepSession[] = []
       if (babyData.baby) {
         const to = new Date()
         const from = new Date(to.getTime() - 36 * 3600 * 1000)
@@ -42,8 +58,10 @@ export default function TrackerClient() {
         )
         if (!sessionsRes.ok) throw new Error('Could not load sleep sessions.')
         const sessionsData: { sessions: SleepSession[] } = await sessionsRes.json()
-        setSessions(sessionsData.sessions)
+        loadedSessions = sessionsData.sessions
       }
+      setSessions(loadedSessions)
+      setBaby(babyData.baby)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     }
@@ -88,17 +106,47 @@ export default function TrackerClient() {
     }
   }
 
+  function openRetro() {
+    setRetroValue(toDatetimeLocal(new Date()))
+    setRetroAdjusted(false)
+    setRetroOpen(true)
+  }
+
+  function resetRetro() {
+    setRetroValue(toDatetimeLocal(new Date()))
+    setRetroAdjusted(false)
+  }
+
   async function handleStart() {
     setBusy(true)
     setError(null)
     try {
+      const body: { action: 'start'; type: SleepType; started_at?: string } = {
+        action: 'start',
+        type: manualType,
+      }
+      if (retroOpen && retroAdjusted && retroValue) {
+        body.started_at = new Date(retroValue).toISOString()
+      }
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start', type: manualType }),
+        body: JSON.stringify(body),
       })
-      if (res.status === 409) throw new Error('Already asleep.')
-      if (!res.ok) throw new Error('Could not start sleep.')
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}) as { error?: string })
+        const message =
+          data.error === 'already_sleeping'
+            ? 'Already asleep.'
+            : data.error === 'overlaps_existing'
+              ? 'Overlaps an existing session.'
+              : data.error === 'started_at_too_old'
+                ? 'Start time can be at most 24 hours ago.'
+                : 'Could not start sleep.'
+        throw new Error(message)
+      }
+      setRetroOpen(false)
+      setRetroAdjusted(false)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -126,11 +174,15 @@ export default function TrackerClient() {
   }
 
   if (baby === undefined) {
-    return (
-      <main className="flex min-h-dvh items-center justify-center">
-        <p className="text-[11px] tracking-[0.2em] uppercase text-ink/40">Loading</p>
-      </main>
-    )
+    if (error) {
+      return (
+        <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 pb-28">
+          <LoadErrorCard message={error} onRetry={load} />
+          <BottomNav />
+        </main>
+      )
+    }
+    return <PageSkeleton variant="tracker" />
   }
 
   if (baby === null) {
@@ -138,7 +190,7 @@ export default function TrackerClient() {
       <main className="flex min-h-dvh flex-col items-center justify-center p-6">
         <form
           onSubmit={handleOnboard}
-          className="flex w-full max-w-xs flex-col gap-8 rounded-2xl border border-ink/15 p-7"
+          className="flex w-full max-w-xs flex-col gap-8 rounded-2xl border border-ink/15 px-6 py-8"
         >
           <div className="flex flex-col gap-2 text-center">
             <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Welcome</p>
@@ -201,6 +253,7 @@ export default function TrackerClient() {
     .filter((s): s is { id: string; leftPct: number; widthPct: number } => s !== null)
 
   const prediction = predictNextSleep(sessions, baby.birth_date, now)
+  const ageMonths = ageInMonths(baby.birth_date, now)
 
   return (
     <main className="mx-auto min-h-dvh max-w-md px-6 pb-28 pt-10">
@@ -226,6 +279,15 @@ export default function TrackerClient() {
           onTypeChange={setManualType}
           onStart={handleStart}
           busy={busy}
+          retroOpen={retroOpen}
+          retroValue={retroValue}
+          onRetroOpen={openRetro}
+          onRetroChange={(v) => {
+            setRetroValue(v)
+            setRetroAdjusted(true)
+          }}
+          onRetroReset={resetRetro}
+          onWakeWindowTap={() => setSheetOpen(true)}
         />
       )}
 
@@ -240,6 +302,9 @@ export default function TrackerClient() {
             />
           ))}
         </div>
+        {segments.length === 0 && (
+          <p className="-mt-2 text-[13px] italic text-ink/35">Nothing tracked today yet</p>
+        )}
         <div className="flex justify-between text-[11px] tracking-[0.15em] uppercase text-ink/35">
           <span>00:00</span>
           <span>12:00</span>
@@ -257,8 +322,66 @@ export default function TrackerClient() {
         </div>
       </section>
 
+      {sheetOpen && (
+        <SleepInfoSheet ageMonths={ageMonths} onClose={() => setSheetOpen(false)} />
+      )}
+
       <BottomNav />
     </main>
+  )
+}
+
+function SleepInfoSheet({ ageMonths, onClose }: { ageMonths: number; onClose: () => void }) {
+  const info = sleepInfoForAge(ageMonths)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-ink/20" onClick={onClose}>
+      <div
+        className="mx-auto max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border-t border-ink/15 bg-cream px-6 pt-3"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-ink/15" />
+
+        <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Sleep guidance</p>
+        <h2 className="mb-8 font-serif text-2xl text-ink">{info.label}</h2>
+
+        <dl className="flex flex-col gap-4 border-t border-ink/15 pt-6">
+          <InfoRow label="Wake window" value={info.wakeWindow} />
+          <InfoRow label="Naps per day" value={info.napsPerDay} />
+          <InfoRow label="Night sleep" value={info.nightSleep} />
+          <InfoRow label="Total per 24h" value={info.total24h} />
+        </dl>
+
+        <p className="mt-8 text-[14px] leading-relaxed text-ink/70">{info.notes}</p>
+
+        <p className="mt-6 text-[12px] italic leading-relaxed text-ink/45">{WAKE_WINDOW_CAVEAT}</p>
+
+        <div className="mt-8 flex flex-col gap-2 border-t border-ink/15 pt-6">
+          <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Sources</span>
+          {SLEEP_SOURCES.map((s) => (
+            <a
+              key={s.url}
+              href={s.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[13px] text-ink/60 underline underline-offset-2"
+            >
+              {s.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between">
+      <dt className="text-[11px] tracking-[0.2em] uppercase text-ink/50">{label}</dt>
+      <dd className="font-serif text-lg text-ink">{value}</dd>
+    </div>
   )
 }
 
@@ -313,12 +436,24 @@ function AwakeCard({
   onTypeChange,
   onStart,
   busy,
+  retroOpen,
+  retroValue,
+  onRetroOpen,
+  onRetroChange,
+  onRetroReset,
+  onWakeWindowTap,
 }: {
   prediction: ReturnType<typeof predictNextSleep>
   manualType: SleepType
   onTypeChange: (t: SleepType) => void
   onStart: () => void
   busy: boolean
+  retroOpen: boolean
+  retroValue: string
+  onRetroOpen: () => void
+  onRetroChange: (v: string) => void
+  onRetroReset: () => void
+  onWakeWindowTap: () => void
 }) {
   const chipClass = clsx(
     'inline-flex items-center rounded-full px-3 py-1 text-[11px] tracking-[0.15em] uppercase',
@@ -326,6 +461,7 @@ function AwakeCard({
     prediction.status === 'tired-soon' && 'border border-orange text-orange',
     prediction.status === 'overtired' && 'bg-orange text-cream'
   )
+  const nowLocal = toDatetimeLocal(new Date())
 
   return (
     <div className="flex flex-col gap-8 rounded-2xl border border-ink/15 px-6 py-8 text-center">
@@ -336,10 +472,14 @@ function AwakeCard({
         ) : (
           <p className="font-serif text-3xl text-ink">Ready when you are</p>
         )}
-        <p className="text-[13px] text-ink/50">
+        <button
+          type="button"
+          onClick={onWakeWindowTap}
+          className="text-[13px] text-ink/50 underline decoration-ink/25 underline-offset-4"
+        >
           Wake window {fmtDuration(prediction.wakeWindow.minMin)}–
-          {fmtDuration(prediction.wakeWindow.maxMin)}
-        </p>
+          {fmtDuration(prediction.wakeWindow.maxMin)} ›
+        </button>
       </div>
 
       <div className="flex items-center justify-center gap-1 rounded-full border border-ink/15 p-1">
@@ -357,6 +497,32 @@ function AwakeCard({
           </button>
         ))}
       </div>
+
+      {retroOpen ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Started at</span>
+            <button
+              type="button"
+              onClick={onRetroReset}
+              className="text-[11px] tracking-[0.15em] uppercase text-orange"
+            >
+              Use current time
+            </button>
+          </div>
+          <input
+            type="datetime-local"
+            value={retroValue}
+            max={nowLocal}
+            onChange={(e) => onRetroChange(e.target.value)}
+            className="h-12 rounded-xl border border-ink/15 bg-transparent px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
+          />
+        </div>
+      ) : (
+        <button type="button" onClick={onRetroOpen} className="text-[13px] italic text-ink/40">
+          Started earlier?
+        </button>
+      )}
 
       <button
         type="button"

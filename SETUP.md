@@ -1,8 +1,9 @@
 # Setup
 
 1. **Create a Supabase project** at https://supabase.com/dashboard.
-2. **Run the migration**: open the SQL editor in your Supabase project and run the
-   contents of `supabase/migrations/001_init.sql`.
+2. **Run the migrations**: open the SQL editor in your Supabase project and run the
+   contents of `supabase/migrations/001_init.sql`, then `supabase/migrations/002_caregivers.sql`
+   (adds baby sharing / caregivers).
 3. **Set up Google OAuth**:
    - Go to https://console.cloud.google.com/apis/credentials, create an OAuth 2.0
      Client ID (Web application).

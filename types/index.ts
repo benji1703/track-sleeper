@@ -17,3 +17,13 @@ export interface SleepSession {
   notes: string | null
   created_at: string
 }
+
+export type CaregiverRole = 'owner' | 'caregiver'
+
+export interface Caregiver {
+  id: string
+  baby_id: string
+  email: string
+  invited_by: string
+  created_at: string
+}

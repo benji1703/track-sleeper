@@ -15,7 +15,9 @@ const config: Config = {
         sage: '#9CA88E',
       },
       fontFamily: {
-        serif: ['"Playfair Display"', 'Georgia', 'serif'],
+        // ui-serif resolves to New York on Apple platforms — Apple's screen
+        // serif with clean lining numerals (primary target: iPhone Safari).
+        serif: ['ui-serif', '"New York"', 'Georgia', '"Times New Roman"', 'serif'],
         sans: [
           '-apple-system',
           'BlinkMacSystemFont',
