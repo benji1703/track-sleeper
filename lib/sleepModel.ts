@@ -17,6 +17,8 @@ export interface WakeWindow {
 // Wake windows by age, in minutes.
 export function wakeWindow(ageMonths: number): WakeWindow {
   if (ageMonths < 3) return { minMin: 60, maxMin: 90 }
+  // 3-month wake window per Huckleberry's age guide (huckleberrycare.com/age-guides/3-months).
+  if (ageMonths < 4) return { minMin: 60, maxMin: 120 }
   if (ageMonths < 6) return { minMin: 90, maxMin: 150 }
   if (ageMonths < 9) return { minMin: 120, maxMin: 180 }
   if (ageMonths < 12) return { minMin: 150, maxMin: 210 }

@@ -37,6 +37,10 @@ export const SLEEP_SOURCES: { label: string; url: string }[] = [
     label: 'NHS — helping your baby to sleep',
     url: 'https://www.nhs.uk/conditions/baby/caring-for-a-newborn/helping-your-baby-to-sleep/',
   },
+  {
+    label: 'Huckleberry — 3 month sleep guide',
+    url: 'https://huckleberrycare.com/age-guides/3-months',
+  },
 ]
 
 export const WAKE_WINDOW_CAVEAT =
@@ -55,8 +59,19 @@ const AGE_SLEEP_INFO: AgeSleepInfo[] = [
       'Newborn sleep is irregular; day/night rhythm develops around 8–12 weeks. Watch for tired signs (yawning, fussing, staring off) rather than the clock.',
   },
   {
-    label: '3–6 months',
+    label: '3 months',
     minMonths: 3,
+    maxMonths: 4,
+    wakeWindow: '60–120 minutes (shorter in the morning, longer before bedtime)',
+    napsPerDay: '4–5 naps',
+    nightSleep: '10–12 hours, one or more night feeds are still common',
+    total24h: '14–17 hours (Huckleberry)',
+    notes:
+      'Sleep architecture is maturing, which can bring more noticeable night wake-ups as sleep cycles organize. Naps become more predictable through the month, typically 30 minutes to 1.5 hours each.',
+  },
+  {
+    label: '4–6 months',
+    minMonths: 4,
     maxMonths: 6,
     wakeWindow: '1.5–2.5 hours',
     napsPerDay: '3–4 naps (2.5–4h total day sleep)',

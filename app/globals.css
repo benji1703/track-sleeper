@@ -15,7 +15,9 @@
   }
 
   .font-serif {
-    font-variant-numeric: lining-nums;
+    font-weight: 500;
     letter-spacing: -0.01em;
+    line-height: 1.2;
+    font-variant-numeric: lining-nums;
   }
 }

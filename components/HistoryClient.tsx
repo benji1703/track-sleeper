@@ -207,11 +207,11 @@ export default function HistoryClient() {
         <section className="mb-8 grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1 rounded-2xl border border-ink/15 px-5 py-4">
             <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">7-day avg sleep</span>
-            <span className="font-serif text-3xl text-ink">{fmtDuration(weekAvg.avgTotalMin)}</span>
+            <span className="font-serif text-3xl font-semibold tabular-nums text-ink">{fmtDuration(weekAvg.avgTotalMin)}</span>
           </div>
           <div className="flex flex-col gap-1 rounded-2xl border border-ink/15 px-5 py-4">
             <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Avg naps/day</span>
-            <span className="font-serif text-3xl text-ink">{weekAvg.avgNaps.toFixed(1)}</span>
+            <span className="font-serif text-3xl font-semibold tabular-nums text-ink">{weekAvg.avgNaps.toFixed(1)}</span>
           </div>
         </section>
       )}
@@ -235,7 +235,7 @@ export default function HistoryClient() {
             <li key={day.dayISO} className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between">
                 <span className="text-[13px] text-ink/70">{fmtDate(day.dayStart)}</span>
-                <span className="font-serif text-lg text-ink">{fmtDuration(day.stats.totalMin)}</span>
+                <span className="font-serif text-lg font-semibold tabular-nums text-ink">{fmtDuration(day.stats.totalMin)}</span>
               </div>
               <div className="relative h-6 overflow-hidden rounded-full border border-ink/15 bg-sand/40">
                 {day.segments.map((seg, i) => (
@@ -280,12 +280,12 @@ export default function HistoryClient() {
             <div className="mb-8 flex items-center justify-between">
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Start</span>
-                <span className="font-serif text-2xl text-ink">{fmtTime(selected.started_at)}</span>
+                <span className="font-serif text-2xl font-semibold tabular-nums text-ink">{fmtTime(selected.started_at)}</span>
               </div>
               <span className="text-ink/30">→</span>
               <div className="flex flex-col items-end gap-1">
                 <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">End</span>
-                <span className="font-serif text-2xl text-ink">
+                <span className="font-serif text-2xl font-semibold tabular-nums text-ink">
                   {selected.ended_at ? fmtTime(selected.ended_at) : '—'}
                 </span>
               </div>

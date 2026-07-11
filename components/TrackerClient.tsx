@@ -17,6 +17,191 @@ function toDatetimeLocal(date: Date): string {
   )}:${pad(date.getMinutes())}`
 }
 
+function isSameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+type TimeField = 'hour' | 'minute'
+
+// macOS-style date/time field: click a segment to select it, then use the
+// stepper or arrow/digit keys to adjust — mirrors NSDatePicker field editing.
+function MacTimePicker({
+  value,
+  onChange,
+  max,
+}: {
+  value: string
+  onChange: (v: string) => void
+  max: string
+}) {
+  const [field, setField] = useState<TimeField>('hour')
+  const [typedBuffer, setTypedBuffer] = useState('')
+
+  const date = useMemo(() => new Date(value), [value])
+  const maxDate = useMemo(() => new Date(max), [max])
+  const today = useMemo(() => new Date(), [])
+  const yesterday = useMemo(() => new Date(today.getTime() - 24 * 3600 * 1000), [today])
+
+  function clamp(next: Date) {
+    return next > maxDate ? maxDate : next
+  }
+
+  function setPart(hour: number, minute: number, dayOffsetFrom = date) {
+    const next = new Date(dayOffsetFrom)
+    next.setHours(hour, minute, 0, 0)
+    onChange(toDatetimeLocal(clamp(next)))
+  }
+
+  function setDay(base: Date) {
+    const next = new Date(base)
+    next.setHours(date.getHours(), date.getMinutes(), 0, 0)
+    onChange(toDatetimeLocal(clamp(next)))
+  }
+
+  function step(delta: number) {
+    setTypedBuffer('')
+    if (field === 'hour') {
+      setPart((date.getHours() + delta + 24) % 24, date.getMinutes())
+    } else {
+      let h = date.getHours()
+      let m = date.getMinutes() + delta
+      if (m < 0) {
+        m += 60
+        h = (h - 1 + 24) % 24
+      } else if (m > 59) {
+        m -= 60
+        h = (h + 1) % 24
+      }
+      setPart(h, m)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent, f: TimeField) {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setField(f)
+      step(1)
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setField(f)
+      step(-1)
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      setField('hour')
+      setTypedBuffer('')
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      setField('minute')
+      setTypedBuffer('')
+    } else if (/^[0-9]$/.test(e.key)) {
+      e.preventDefault()
+      const limit = f === 'hour' ? 23 : 59
+      const combined = Number(typedBuffer + e.key)
+      const usesCombined = typedBuffer !== '' && combined <= limit
+      const digits = usesCombined ? typedBuffer + e.key : e.key
+      const parsed = Number(digits)
+
+      if (f === 'hour') setPart(parsed, date.getMinutes())
+      else setPart(date.getHours(), parsed)
+
+      if (digits.length === 2) {
+        setTypedBuffer('')
+        if (f === 'hour') setField('minute')
+      } else {
+        setTypedBuffer(digits)
+      }
+    }
+  }
+
+  const isToday = isSameLocalDay(date, today)
+  const isYesterday = isSameLocalDay(date, yesterday)
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex overflow-hidden rounded-lg border border-ink/15">
+        <button
+          type="button"
+          onClick={() => setDay(today)}
+          className={clsx(
+            'px-3 py-2 text-[11px] tracking-[0.1em] uppercase transition-colors',
+            isToday ? 'bg-ink text-cream' : 'bg-transparent text-ink/50'
+          )}
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={() => setDay(yesterday)}
+          className={clsx(
+            'px-3 py-2 text-[11px] tracking-[0.1em] uppercase transition-colors',
+            isYesterday ? 'bg-ink text-cream' : 'bg-transparent text-ink/50'
+          )}
+        >
+          Yesterday
+        </button>
+      </div>
+
+      <div className="flex items-stretch rounded-lg border border-ink/15 bg-white/40">
+        <div className="flex items-center gap-[2px] px-3 font-serif text-xl font-semibold tabular-nums text-ink">
+          <button
+            type="button"
+            tabIndex={0}
+            onClick={() => {
+              setField('hour')
+              setTypedBuffer('')
+            }}
+            onKeyDown={(e) => handleKeyDown(e, 'hour')}
+            className={clsx(
+              'rounded px-0.5 outline-none',
+              field === 'hour' && 'bg-orange/15 text-orange'
+            )}
+          >
+            {String(date.getHours()).padStart(2, '0')}
+          </button>
+          <span className="text-ink/30">:</span>
+          <button
+            type="button"
+            tabIndex={0}
+            onClick={() => {
+              setField('minute')
+              setTypedBuffer('')
+            }}
+            onKeyDown={(e) => handleKeyDown(e, 'minute')}
+            className={clsx(
+              'rounded px-0.5 outline-none',
+              field === 'minute' && 'bg-orange/15 text-orange'
+            )}
+          >
+            {String(date.getMinutes()).padStart(2, '0')}
+          </button>
+        </div>
+        <div className="flex flex-col divide-y divide-ink/15 border-l border-ink/15">
+          <button
+            type="button"
+            aria-label="Increase"
+            onClick={() => step(1)}
+            className="flex flex-1 items-center justify-center px-2 text-[9px] text-ink/50 hover:text-orange active:bg-ink/5"
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            aria-label="Decrease"
+            onClick={() => step(-1)}
+            className="flex flex-1 items-center justify-center px-2 text-[9px] text-ink/50 hover:text-orange active:bg-ink/5"
+          >
+            ▼
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function TrackerClient() {
   const [baby, setBaby] = useState<Baby | null | undefined>(undefined)
   const [sessions, setSessions] = useState<SleepSession[]>([])
@@ -313,11 +498,11 @@ export default function TrackerClient() {
         <div className="flex items-baseline justify-between border-t border-ink/15 pt-4">
           <div className="flex flex-col gap-1">
             <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Total slept</span>
-            <span className="font-serif text-2xl text-ink">{fmtDuration(stats.totalMin)}</span>
+            <span className="font-serif text-2xl font-semibold tabular-nums text-ink">{fmtDuration(stats.totalMin)}</span>
           </div>
           <div className="flex flex-col items-end gap-1">
             <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Naps</span>
-            <span className="font-serif text-2xl text-ink">{stats.napCount}</span>
+            <span className="font-serif text-2xl font-semibold tabular-nums text-ink">{stats.napCount}</span>
           </div>
         </div>
       </section>
@@ -407,10 +592,10 @@ function SleepingCard({
       <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">
         Asleep since {fmtTime(startedAt)}
       </p>
-      <p className="font-serif text-6xl tabular-nums text-ink">
+      <p className="font-serif text-6xl font-semibold tabular-nums text-ink">
         {elapsedH > 0 ? `${elapsedH}:` : ''}
         {String(elapsedM).padStart(2, '0')}
-        <span className="text-3xl text-ink/40">:{String(elapsedS).padStart(2, '0')}</span>
+        <span className="text-3xl font-medium text-ink/40">:{String(elapsedS).padStart(2, '0')}</span>
       </p>
       <button
         type="button"
@@ -468,7 +653,10 @@ function AwakeCard({
       <div className="flex flex-col items-center gap-3">
         <span className={chipClass}>{STATUS_LABEL[prediction.status] ?? prediction.status}</span>
         {prediction.nextSleepAt ? (
-          <p className="font-serif text-5xl text-ink">Next ~{fmtTime(prediction.nextSleepAt)}</p>
+          <p className="font-serif text-5xl font-semibold tabular-nums text-ink">
+            Next <span className="font-normal text-ink/50">~</span>
+            {fmtTime(prediction.nextSleepAt)}
+          </p>
         ) : (
           <p className="font-serif text-3xl text-ink">Ready when you are</p>
         )}
@@ -510,13 +698,9 @@ function AwakeCard({
               Use current time
             </button>
           </div>
-          <input
-            type="datetime-local"
-            value={retroValue}
-            max={nowLocal}
-            onChange={(e) => onRetroChange(e.target.value)}
-            className="h-12 rounded-xl border border-ink/15 bg-transparent px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
-          />
+          <div className="flex justify-center">
+            <MacTimePicker value={retroValue} onChange={onRetroChange} max={nowLocal} />
+          </div>
         </div>
       ) : (
         <button type="button" onClick={onRetroOpen} className="text-[13px] italic text-ink/40">

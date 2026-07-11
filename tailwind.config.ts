@@ -15,18 +15,10 @@ const config: Config = {
         sage: '#9CA88E',
       },
       fontFamily: {
-        // ui-serif resolves to New York on Apple platforms — Apple's screen
-        // serif with clean lining numerals (primary target: iPhone Safari).
-        serif: ['ui-serif', '"New York"', 'Georgia', '"Times New Roman"', 'serif'],
-        sans: [
-          '-apple-system',
-          'BlinkMacSystemFont',
-          'Segoe UI',
-          'Roboto',
-          'Helvetica Neue',
-          'Arial',
-          'sans-serif',
-        ],
+        // Self-hosted via next/font (see app/layout.tsx) — matches the
+        // typography used at rsvp.arbibe.dev (mili-rsvp).
+        serif: ['var(--font-serif)', '"Frank Ruhl Libre"', 'serif'],
+        sans: ['var(--font-sans)', 'Assistant', 'system-ui', 'sans-serif'],
       },
     },
   },
