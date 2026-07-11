@@ -456,7 +456,13 @@ export default function TrackerClient() {
       )}
 
       {openSession ? (
-        <SleepingCard session={openSession} now={now} onStop={handleStop} busy={busy} />
+        <SleepingCard
+          session={openSession}
+          now={now}
+          onStop={handleStop}
+          busy={busy}
+          onLearnMore={() => setSheetOpen(true)}
+        />
       ) : (
         <AwakeCard
           prediction={prediction}
@@ -575,11 +581,13 @@ function SleepingCard({
   now,
   onStop,
   busy,
+  onLearnMore,
 }: {
   session: SleepSession
   now: Date
   onStop: () => void
   busy: boolean
+  onLearnMore: () => void
 }) {
   const startedAt = new Date(session.started_at)
   const elapsedMin = (now.getTime() - startedAt.getTime()) / MS_PER_MIN
@@ -604,6 +612,13 @@ function SleepingCard({
         className="h-14 w-full max-w-[220px] rounded-full bg-orange text-[15px] tracking-[0.1em] uppercase text-cream transition-opacity disabled:opacity-50"
       >
         Stop
+      </button>
+      <button
+        type="button"
+        onClick={onLearnMore}
+        className="text-[13px] text-ink/50 underline underline-offset-2"
+      >
+        Learn about sleep at this age →
       </button>
     </div>
   )
