@@ -170,6 +170,57 @@ describe('computeInsights', () => {
     const insights = computeInsights(sessions, '2026-01-12', now)
     expect(insights.some((i) => i.text.toLowerCase().includes('stretch'))).toBe(true)
   })
+
+  it('flags an anomalous latest observation', () => {
+    const now = new Date('2026-07-12T12:00:00Z')
+
+    // Baseline alternates between 60min and 120min gaps so the IQR fences
+    // stay wide (a perfectly flat baseline would clip out any differing
+    // value before it ever reaches the anomaly check). The final gap of
+    // 200min survives clipping (fences land at roughly -30..210) but is
+    // still far enough from the resulting weighted mean to exceed 1.5 stddev.
+    const sessionDurationMs = 30 * 60 * 1000
+    const gaps = [60, 120, 60, 120, 60, 120, 60, 120, 60, 120, 60, 120, 200]
+    const chain: SleepSession[] = []
+    let cursor = now.getTime()
+    for (let i = gaps.length; i >= 0; i--) {
+      const endedAt = new Date(cursor)
+      const startedAt = new Date(cursor - sessionDurationMs)
+      chain.unshift(session(`anom-${i}`, startedAt.toISOString(), endedAt.toISOString()))
+      if (i > 0) cursor = startedAt.getTime() - gaps[i - 1] * 60 * 1000
+    }
+
+    const insights = computeInsights(chain, '2026-01-12', now)
+    expect(insights.some((i) => i.text.toLowerCase().includes('long one'))).toBe(true)
+  })
+
+  it('flags fewer naps than usual today', () => {
+    const tz = 'UTC'
+    const now = new Date('2026-07-12T20:00:00Z') // today's cutoff time-of-day is 20:00
+    const birthDate = '2026-01-12'
+
+    // 14 prior days of 3 naps each (06:00, 10:00, 14:00), all before the
+    // 20:00 cutoff, giving a consistent same-time-of-day baseline of 3
+    // naps/day. The consistent inter-nap gaps also supply enough
+    // wake-window observations to clear the low-confidence gate. Today has
+    // only 1 nap so far, well below the typical 3.
+    const naps: SleepSession[] = []
+    for (let d = 1; d <= 14; d++) {
+      const dayISO = new Date(now.getTime() - d * 24 * 3600 * 1000).toISOString().slice(0, 10)
+      for (const [k, t] of ['06:00', '10:00', '14:00'].entries()) {
+        const start = new Date(`${dayISO}T${t}:00Z`)
+        const end = new Date(start.getTime() + 20 * 60 * 1000)
+        naps.push(session(`nap-prior-${d}-${k}`, start.toISOString(), end.toISOString()))
+      }
+    }
+    const todayISO = now.toISOString().slice(0, 10)
+    const todayStart = new Date(`${todayISO}T06:00:00Z`)
+    const todayEnd = new Date(todayStart.getTime() + 20 * 60 * 1000)
+    naps.push(session('nap-today-1', todayStart.toISOString(), todayEnd.toISOString()))
+
+    const insights = computeInsights(naps, birthDate, now, tz)
+    expect(insights.some((i) => i.text === 'Fewer naps than usual today so far')).toBe(true)
+  })
 })
 
 describe('predictNextSleep with personalized data', () => {
