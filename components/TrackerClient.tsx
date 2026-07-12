@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import type { Baby, SleepSession, SleepType } from '@/types'
-import { predictNextSleep, dailyStats, ageInMonths, computeInsights, type Insight } from '@/lib/sleepModel'
+import {
+  predictNextSleep,
+  dailyStats,
+  ageInMonths,
+  computeInsights,
+  personalizedWindow,
+  type Insight,
+  type PersonalizedWindow,
+  type SleepPrediction,
+} from '@/lib/sleepModel'
 import { sleepInfoForAge, SLEEP_SOURCES, WAKE_WINDOW_CAVEAT } from '@/lib/sleepInfo'
 import { fmtTime, fmtDuration } from '@/lib/format'
 import BottomNav from '@/components/BottomNav'
@@ -26,6 +35,41 @@ function isSameLocalDay(a: Date, b: Date): boolean {
 }
 
 type TimeField = 'hour' | 'minute'
+
+interface ThirtyDaySummary {
+  totalMin: number
+  averagePerDayMin: number
+  napCount: number
+  completedCount: number
+}
+
+function thirtyDaySummary(sessions: SleepSession[], now: Date): ThirtyDaySummary {
+  const fromMs = now.getTime() - 30 * 24 * 3600 * 1000
+  let totalMin = 0
+  let napCount = 0
+  let completedCount = 0
+
+  for (const session of sessions) {
+    if (!session.ended_at) continue
+
+    const start = new Date(session.started_at)
+    const end = new Date(session.ended_at)
+    const clippedStartMs = Math.max(start.getTime(), fromMs)
+    const clippedEndMs = Math.min(end.getTime(), now.getTime())
+    if (clippedEndMs <= clippedStartMs) continue
+
+    completedCount += 1
+    totalMin += (clippedEndMs - clippedStartMs) / MS_PER_MIN
+    if (session.type === 'nap') napCount += 1
+  }
+
+  return {
+    totalMin,
+    averagePerDayMin: totalMin / 30,
+    napCount,
+    completedCount,
+  }
+}
 
 // macOS-style date/time field: click a segment to select it, then use the
 // stepper or arrow/digit keys to adjust — mirrors NSDatePicker field editing.
@@ -438,8 +482,10 @@ export default function TrackerClient() {
     .filter((s): s is { id: string; leftPct: number; widthPct: number } => s !== null)
 
   const prediction = predictNextSleep(sessions, baby.birth_date, now)
+  const model = personalizedWindow(sessions, baby.birth_date, now)
   const insights = computeInsights(sessions, baby.birth_date, now)
   const topInsight: Insight | undefined = insights[0]
+  const thirtyDay = thirtyDaySummary(sessions, now)
   const ageMonths = ageInMonths(baby.birth_date, now)
 
   return (
@@ -483,6 +529,8 @@ export default function TrackerClient() {
           onWakeWindowTap={() => setSheetOpen(true)}
         />
       )}
+
+      <PredictionModelCard prediction={prediction} model={model} summary={thirtyDay} />
 
       {topInsight && (
         <div className="mt-4">
@@ -754,6 +802,64 @@ function InsightCard({ insight }: { insight: Insight }) {
       )}
     >
       <span>{insight.text}</span>
+    </div>
+  )
+}
+
+function PredictionModelCard({
+  prediction,
+  model,
+  summary,
+}: {
+  prediction: SleepPrediction
+  model: PersonalizedWindow
+  summary: ThirtyDaySummary
+}) {
+  const confidenceLabel =
+    model.confidence === 'high' ? 'High' : model.confidence === 'medium' ? 'Medium' : 'Learning'
+
+  return (
+    <section className="mt-4 rounded-2xl border border-ink/15 px-5 py-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Personalized prediction</p>
+        <span
+          className={clsx(
+            'rounded-full px-3 py-1 text-[10px] tracking-[0.15em] uppercase',
+            model.confidence === 'high' && 'bg-sage/15 text-sage',
+            model.confidence === 'medium' && 'border border-ink/15 text-ink/55',
+            model.confidence === 'low' && 'bg-sand/50 text-ink/45'
+          )}
+        >
+          {confidenceLabel}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+        <Metric label="Next sleep" value={prediction.nextSleepAt ? `~${fmtTime(prediction.nextSleepAt)}` : 'No wake yet'} />
+        <Metric
+          label="Wake window"
+          value={`${fmtDuration(prediction.wakeWindow.minMin)}-${fmtDuration(prediction.wakeWindow.maxMin)}`}
+        />
+        <Metric label="Wake samples" value={String(model.sampleCount)} />
+        <Metric label="30-day sleep" value={fmtDuration(summary.totalMin)} />
+        <Metric label="Avg / day" value={fmtDuration(summary.averagePerDayMin)} />
+        <Metric label="Naps logged" value={String(summary.napCount)} />
+      </div>
+
+      {summary.completedCount === 0 && (
+        <p className="mt-4 border-t border-ink/10 pt-3 text-[12px] italic text-ink/40">
+          Log a few completed sleeps to personalize the prediction.
+        </p>
+      )}
+    </section>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="truncate text-[10px] tracking-[0.18em] uppercase text-ink/40">{label}</span>
+      <span className="truncate font-serif text-lg font-bold tabular-nums text-ink">{value}</span>
     </div>
   )
 }
