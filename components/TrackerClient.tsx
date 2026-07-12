@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import type { Baby, SleepSession, SleepType } from '@/types'
-import { predictNextSleep, dailyStats, ageInMonths } from '@/lib/sleepModel'
+import { predictNextSleep, dailyStats, ageInMonths, computeInsights, type Insight } from '@/lib/sleepModel'
 import { sleepInfoForAge, SLEEP_SOURCES, WAKE_WINDOW_CAVEAT } from '@/lib/sleepInfo'
 import { fmtTime, fmtDuration } from '@/lib/format'
 import BottomNav from '@/components/BottomNav'
@@ -235,7 +235,7 @@ export default function TrackerClient() {
       let loadedSessions: SleepSession[] = []
       if (babyData.baby) {
         const to = new Date()
-        const from = new Date(to.getTime() - 36 * 3600 * 1000)
+        const from = new Date(to.getTime() - 30 * 24 * 3600 * 1000)
         const sessionsRes = await fetch(
           `/api/sessions?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(
             to.toISOString()
@@ -438,6 +438,8 @@ export default function TrackerClient() {
     .filter((s): s is { id: string; leftPct: number; widthPct: number } => s !== null)
 
   const prediction = predictNextSleep(sessions, baby.birth_date, now)
+  const insights = computeInsights(sessions, baby.birth_date, now)
+  const topInsight: Insight | undefined = insights[0]
   const ageMonths = ageInMonths(baby.birth_date, now)
 
   return (
@@ -480,6 +482,12 @@ export default function TrackerClient() {
           onRetroReset={resetRetro}
           onWakeWindowTap={() => setSheetOpen(true)}
         />
+      )}
+
+      {topInsight && (
+        <div className="mt-4">
+          <InsightCard insight={topInsight} />
+        </div>
       )}
 
       <section className="mt-10 flex flex-col gap-4">
@@ -731,6 +739,21 @@ function AwakeCard({
       >
         Start sleep
       </button>
+    </div>
+  )
+}
+
+function InsightCard({ insight }: { insight: Insight }) {
+  return (
+    <div
+      className={clsx(
+        'flex items-center gap-3 rounded-2xl border px-5 py-4 text-[13px] leading-relaxed',
+        insight.severity === 'notable'
+          ? 'border-orange/30 bg-orange/5 text-orange'
+          : 'border-ink/15 bg-transparent text-ink/60'
+      )}
+    >
+      <span>{insight.text}</span>
     </div>
   )
 }
