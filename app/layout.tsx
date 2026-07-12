@@ -31,13 +31,20 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'Sommeil',
   },
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#F5F3EE',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F5F3EE' },
+    { media: '(prefers-color-scheme: dark)', color: '#111817' },
+  ],
 }
 
 export default function RootLayout({

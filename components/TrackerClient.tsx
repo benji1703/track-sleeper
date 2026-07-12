@@ -19,6 +19,13 @@ import BottomNav from '@/components/BottomNav'
 import { PageSkeleton, LoadErrorCard } from '@/components/Skeleton'
 import { TZ, MS_PER_MIN, dayBoundsInTz, dateISOInTz, localHourInTz } from '@/components/timeUtils'
 import { apiFetch } from '@/lib/apiClient'
+import {
+  createMutationId,
+  enqueueSleepMutation,
+  pendingSleepMutations,
+  removeSleepMutation,
+} from '@/lib/sleepOutbox'
+import type { SleepMutation, SleepMutationResult } from '@/types'
 
 function toDatetimeLocal(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -43,6 +50,9 @@ interface ThirtyDaySummary {
   napCount: number
   completedCount: number
 }
+
+type SyncState = 'synced' | 'syncing' | 'offline'
+type UndoAction = { label: string; session: SleepSession; kind: 'start' | 'stop' }
 
 function thirtyDaySummary(sessions: SleepSession[], now: Date): ThirtyDaySummary {
   const fromMs = now.getTime() - 30 * 24 * 3600 * 1000
@@ -262,6 +272,8 @@ export default function TrackerClient() {
   const [retroValue, setRetroValue] = useState('')
   const [retroAdjusted, setRetroAdjusted] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [syncState, setSyncState] = useState<SyncState>('synced')
+  const [undoAction, setUndoAction] = useState<UndoAction | null>(null)
 
   function isNightHour(hour: number) {
     return hour >= 19 || hour < 6
@@ -309,6 +321,66 @@ export default function TrackerClient() {
     load()
   }, [load])
 
+  const submitMutation = useCallback(async (mutation: SleepMutation) => {
+    const res = await apiFetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(mutation),
+    })
+    if (!res.ok) throw new Error('sync_failed')
+    const result = (await res.json()) as SleepMutationResult
+    await removeSleepMutation(mutation.mutation_id)
+    return result
+  }, [])
+
+  const flushOutbox = useCallback(async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setSyncState('offline')
+      return
+    }
+    const pending = await pendingSleepMutations()
+    if (pending.length === 0) {
+      setSyncState('synced')
+      return
+    }
+    setSyncState('syncing')
+    try {
+      for (const mutation of pending) {
+        await submitMutation({ ...mutation, source: 'offline-replay' })
+      }
+      setSyncState('synced')
+      await load()
+    } catch {
+      setSyncState('offline')
+    }
+  }, [load, submitMutation])
+
+  useEffect(() => {
+    flushOutbox()
+    const handleOnline = () => flushOutbox()
+    const handleOffline = () => setSyncState('offline')
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        flushOutbox()
+        load()
+      }
+    }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [flushOutbox, load])
+
+  useEffect(() => {
+    if (!undoAction) return
+    const timeout = window.setTimeout(() => setUndoAction(null), 5000)
+    return () => window.clearTimeout(timeout)
+  }, [undoAction])
+
   const openSession = useMemo(() => sessions.find((s) => s.ended_at === null), [sessions])
 
   // Live tick: every second while sleeping, every 30s otherwise.
@@ -351,64 +423,104 @@ export default function TrackerClient() {
   }
 
   async function handleStart() {
-    setBusy(true)
+    const mutationId = createMutationId()
+    const startedAt = retroOpen && retroAdjusted && retroValue
+      ? new Date(retroValue).toISOString()
+      : new Date().toISOString()
+    const optimistic: SleepSession = {
+      id: `pending:${mutationId}`,
+      baby_id: baby?.id ?? '',
+      started_at: startedAt,
+      ended_at: null,
+      type: manualType,
+      notes: null,
+      created_at: new Date().toISOString(),
+      source: 'web',
+    }
+    const mutation: SleepMutation = {
+      mutation_id: mutationId,
+      action: 'start',
+      type: manualType,
+      ...(retroOpen && retroAdjusted ? { started_at: startedAt } : {}),
+    }
+
+    setSessions((current) => [optimistic, ...current])
+    setUndoAction({ label: 'Sleep started', session: optimistic, kind: 'start' })
+    setRetroOpen(false)
+    setNow(new Date())
+    setSyncState('syncing')
     setError(null)
     try {
-      const body: { action: 'start'; type: SleepType; started_at?: string } = {
-        action: 'start',
-        type: manualType,
+      await enqueueSleepMutation(mutation)
+      const result = await submitMutation(mutation)
+      if (result.canonical_state.status === 'sleeping') {
+        const canonical = result.canonical_state.session
+        setSessions((current) => [canonical, ...current.filter((s) => s.id !== optimistic.id && s.id !== canonical.id)])
+        setUndoAction({ label: result.applied ? 'Sleep started' : 'Already sleeping — synced', session: canonical, kind: 'start' })
       }
-      if (retroOpen && retroAdjusted && retroValue) {
-        body.started_at = new Date(retroValue).toISOString()
-      }
-      const res = await apiFetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}) as { error?: string })
-        const message =
-          data.error === 'already_sleeping'
-            ? 'Already asleep.'
-            : data.error === 'overlaps_existing'
-              ? 'Overlaps an existing session.'
-              : data.error === 'started_at_too_old'
-                ? 'Start time can be at most 24 hours ago.'
-                : 'Could not start sleep.'
-        throw new Error(message)
-      }
-      const data: { session: SleepSession } = await res.json()
-      setSessions((current) => [data.session, ...current.filter((s) => s.id !== data.session.id)])
-      setNow(new Date())
-      setRetroOpen(false)
+      setSyncState('synced')
       setRetroAdjusted(false)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.')
-    } finally {
-      setBusy(false)
+    } catch {
+      setSyncState('offline')
     }
   }
 
   async function handleStop() {
-    setBusy(true)
+    if (!openSession) return
+    const mutationId = createMutationId()
+    const endedAt = new Date().toISOString()
+    const previous = openSession
+    const optimistic = { ...openSession, ended_at: endedAt }
+    const mutation: SleepMutation = {
+      mutation_id: mutationId,
+      action: 'stop',
+      ended_at: endedAt,
+      ...(openSession.id.startsWith('pending:') ? {} : { expected_session_id: openSession.id }),
+    }
+    setSessions((current) => current.map((item) => item.id === openSession.id ? optimistic : item))
+    setUndoAction({ label: 'Wake time recorded', session: previous, kind: 'stop' })
+    setNow(new Date())
+    setSyncState('syncing')
     setError(null)
     try {
-      const res = await apiFetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'stop' }),
-      })
-      if (!res.ok) throw new Error('Could not stop sleep.')
-      const data: { session: SleepSession } = await res.json()
-      setSessions((current) => current.map((s) => (s.id === data.session.id ? data.session : s)))
+      await enqueueSleepMutation(mutation)
+      const result = await submitMutation(mutation)
+      if (result.session) {
+        setSessions((current) => current.map((s) => (s.id === openSession.id || s.id === result.session!.id ? result.session! : s)))
+      } else if (result.canonical_state.status === 'awake') {
+        await load()
+      }
       const stoppedAt = new Date()
       setNow(stoppedAt)
       setManualType(isNightHour(localHourInTz(stoppedAt, TZ)) ? 'night' : 'nap')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.')
-    } finally {
-      setBusy(false)
+      setSyncState('synced')
+    } catch {
+      setSyncState('offline')
+    }
+  }
+
+  async function handleUndo() {
+    const action = undoAction
+    if (!action || action.session.id.startsWith('pending:')) return
+    setUndoAction(null)
+    try {
+      if (action.kind === 'start') {
+        const res = await apiFetch(`/api/sessions/${action.session.id}`, { method: 'DELETE' })
+        if (!res.ok) throw new Error()
+        setSessions((current) => current.filter((s) => s.id !== action.session.id))
+      } else {
+        const res = await apiFetch(`/api/sessions/${action.session.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ended_at: null }),
+        })
+        if (!res.ok) throw new Error()
+        const data: { session: SleepSession } = await res.json()
+        setSessions((current) => current.map((s) => s.id === data.session.id ? data.session : s))
+      }
+    } catch {
+      setError('Could not undo. You can correct the time in Timeline.')
+      await load()
     }
   }
 
@@ -499,11 +611,16 @@ export default function TrackerClient() {
   const ageMonths = ageInMonths(baby.birth_date, now)
 
   return (
-    <main className="page-shell">
+    <main className={clsx('page-shell tracker-page', openSession && 'tracker-page--sleeping')}>
       <header className="mb-6 flex flex-col gap-1">
-        <p className="label">{baby.name}</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="label">{baby.name}</p>
+          <span className="sync-status" data-state={syncState} aria-live="polite">
+            {syncState === 'offline' ? 'Saved offline' : syncState === 'syncing' ? 'Syncing…' : 'Up to date'}
+          </span>
+        </div>
         <h1 className="font-serif text-3xl text-ink">
-          {openSession ? 'Sleeping' : 'Awake'}
+          {openSession ? 'Sleeping now' : 'Awake now'}
         </h1>
       </header>
 
@@ -581,6 +698,13 @@ export default function TrackerClient() {
 
       {sheetOpen && (
         <SleepInfoSheet ageMonths={ageMonths} onClose={() => setSheetOpen(false)} />
+      )}
+
+      {undoAction && (
+        <div className="undo-toast" role="status">
+          <span>{undoAction.label}</span>
+          {!undoAction.session.id.startsWith('pending:') && <button type="button" onClick={handleUndo}>Undo</button>}
+        </div>
       )}
 
       <BottomNav />
@@ -680,7 +804,7 @@ function SleepingCard({
         disabled={busy}
         className="min-h-16 w-full rounded-lg bg-orange px-6 text-base font-semibold text-white transition-colors active:bg-orange/90 disabled:opacity-50"
       >
-        {busy ? 'Saving…' : 'Wake up'}
+        {busy ? 'Saving…' : 'Baby woke up'}
       </button>
       <button
         type="button"
@@ -756,52 +880,49 @@ function AwakeCard({
         </button>
       </div>
 
-      <div className="flex items-center justify-center gap-1 rounded-lg bg-ink/5 p-1" aria-label="Sleep type">
-        {(['nap', 'night'] as SleepType[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => onTypeChange(t)}
-            className={clsx(
-              'min-h-11 flex-1 rounded-md px-3 text-sm font-medium capitalize transition-colors',
-              manualType === t ? 'bg-white text-ink shadow-sm' : 'text-ink/50'
-            )}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {retroOpen ? (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="label">Started at</span>
-            <button
-              type="button"
-              onClick={onRetroReset}
-              className="min-h-11 px-2 text-sm font-medium text-orange"
-            >
-              Use current time
-            </button>
-          </div>
-          <div className="flex justify-center">
-            <MacTimePicker value={retroValue} onChange={onRetroChange} max={nowLocal} />
-          </div>
-        </div>
-      ) : (
-        <button type="button" onClick={onRetroOpen} className="min-h-11 text-sm text-ink/50 underline underline-offset-4">
-          Started earlier?
-        </button>
-      )}
-
       <button
         type="button"
         onClick={onStart}
         disabled={busy}
         className="min-h-16 w-full rounded-lg bg-orange px-6 text-base font-semibold text-white transition-colors active:bg-orange/90 disabled:opacity-50"
       >
-        {busy ? 'Saving…' : `Start ${manualType}`}
+        {busy ? 'Saving…' : 'Start sleep'}
       </button>
+
+      <details className="sleep-options text-left">
+        <summary className="mx-auto flex min-h-11 w-fit cursor-pointer list-none items-center px-3 text-sm text-ink/50 underline underline-offset-4">
+          Adjust type or start time
+        </summary>
+        <div className="mt-3 flex flex-col gap-4 border-t border-ink/10 pt-4">
+          <div className="flex items-center justify-center gap-1 rounded-lg bg-ink/5 p-1" aria-label="Sleep type">
+            {(['nap', 'night'] as SleepType[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onTypeChange(t)}
+                className={clsx(
+                  'min-h-11 flex-1 rounded-md px-3 text-sm font-medium capitalize transition-colors',
+                  manualType === t ? 'bg-white text-ink shadow-sm' : 'text-ink/50'
+                )}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {retroOpen ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="label">Started at</span>
+                <button type="button" onClick={onRetroReset} className="min-h-11 px-2 text-sm font-medium text-orange">Use current time</button>
+              </div>
+              <div className="flex justify-center"><MacTimePicker value={retroValue} onChange={onRetroChange} max={nowLocal} /></div>
+            </div>
+          ) : (
+            <button type="button" onClick={onRetroOpen} className="min-h-11 text-sm text-ink/50 underline underline-offset-4">Started earlier?</button>
+          )}
+        </div>
+      </details>
     </section>
   )
 }

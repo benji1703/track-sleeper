@@ -4,12 +4,30 @@ import { useCallback, useEffect, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import clsx from 'clsx'
 import { apiFetch } from '@/lib/apiClient'
-import type { Baby, CaregiverRole } from '@/types'
+import type { AppPreferences, Baby, CaregiverRole } from '@/types'
 import { ageInMonths } from '@/lib/sleepModel'
 import BottomNav from '@/components/BottomNav'
 import { PageSkeleton, LoadErrorCard } from '@/components/Skeleton'
 
 const APP_VERSION = 'v0.1.0'
+const DEFAULT_PREFERENCES: AppPreferences = {
+  appearance: 'automatic',
+  ai_coach_enabled: false,
+  caregiver_updates_enabled: false,
+  sleep_window_reminders_enabled: false,
+}
+
+function applyAppearance(appearance: AppPreferences['appearance']) {
+  document.documentElement.dataset.appearance = appearance
+  localStorage.setItem('sommeil:appearance', appearance)
+}
+
+function applicationServerKey(value: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (value.length % 4)) % 4)
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0))
+  return new Uint8Array(bytes.buffer)
+}
 
 function formatAge(months: number): string {
   if (months < 1) {
@@ -39,11 +57,13 @@ export default function SettingsClient() {
   const [inviteBusy, setInviteBusy] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
+  const [preferences, setPreferences] = useState<AppPreferences>(DEFAULT_PREFERENCES)
+  const [preferenceBusy, setPreferenceBusy] = useState(false)
 
   const load = useCallback(async () => {
     setError(null)
     try {
-      const res = await apiFetch('/api/baby')
+      const [res, preferenceRes] = await Promise.all([apiFetch('/api/baby'), apiFetch('/api/preferences')])
       if (!res.ok) throw new Error('Could not load baby profile.')
       const data: { baby: Baby | null; role: CaregiverRole | null; caregivers: { email: string }[] } =
         await res.json()
@@ -54,10 +74,74 @@ export default function SettingsClient() {
         setName(data.baby.name)
         setBirthDate(data.baby.birth_date)
       }
+      if (preferenceRes.ok) {
+        const preferenceData: { preferences: AppPreferences } = await preferenceRes.json()
+        setPreferences(preferenceData.preferences)
+        applyAppearance(preferenceData.preferences.appearance)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     }
   }, [])
+
+  async function updatePreferences(patch: Partial<AppPreferences>) {
+    const next = { ...preferences, ...patch }
+    setPreferences(next)
+    applyAppearance(next.appearance)
+    setPreferenceBusy(true)
+    try {
+      const res = await apiFetch('/api/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      setPreferences(preferences)
+      setError('Could not save preferences.')
+    } finally {
+      setPreferenceBusy(false)
+    }
+  }
+
+  async function enableCaregiverUpdates() {
+    const enabling = !preferences.caregiver_updates_enabled
+    if (!enabling) {
+      const registration = await navigator.serviceWorker?.ready
+      const subscription = await registration?.pushManager.getSubscription()
+      if (subscription) {
+        await apiFetch('/api/push/subscribe', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: subscription.endpoint }) })
+        await subscription.unsubscribe()
+      }
+      await updatePreferences({ caregiver_updates_enabled: false })
+      return
+    }
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    if (!publicKey || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setError('Push notifications are not configured or supported on this device.')
+      return
+    }
+    if (Notification.permission === 'default') {
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        setError('Notifications are still off. You can enable them later in iPhone Settings.')
+        return
+      }
+    }
+    if (Notification.permission !== 'granted') {
+      setError('Notifications are blocked. Enable them for Sommeil in iPhone Settings.')
+      return
+    }
+    const registration = await navigator.serviceWorker.register('/sw.js')
+    const existing = await registration.pushManager.getSubscription()
+    const subscription = existing ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: applicationServerKey(publicKey) })
+    const res = await apiFetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(subscription) })
+    if (!res.ok) {
+      setError('Could not enable caregiver notifications.')
+      return
+    }
+    await updatePreferences({ caregiver_updates_enabled: true })
+  }
 
   useEffect(() => {
     load()
@@ -157,13 +241,39 @@ export default function SettingsClient() {
   return (
     <main className="mx-auto min-h-dvh max-w-md px-6 pb-28 pt-10">
       <header className="mb-10">
-        <h1 className="font-serif text-2xl text-ink">Settings</h1>
+        <p className="label">Settings</p>
+        <h1 className="font-serif text-2xl text-ink">Family</h1>
       </header>
 
       {error && (
         <p className="mb-6 rounded-xl border border-orange/30 bg-orange/5 px-4 py-3 text-[13px] text-orange">
           {error}
         </p>
+      )}
+
+      <section className="mt-8 rounded-2xl border border-ink/15 px-5 py-6">
+        <h2 className="font-serif text-xl text-ink">Comfort</h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-ink/50">Choose how Sommeil looks during late-night updates.</p>
+        <div className="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-ink/5 p-1" aria-label="Appearance">
+          {(['automatic', 'light', 'dark'] as const).map((appearance) => (
+            <button key={appearance} type="button" disabled={preferenceBusy} onClick={() => updatePreferences({ appearance })} className={clsx('min-h-11 rounded-lg text-xs font-medium capitalize', preferences.appearance === appearance ? 'bg-white text-ink shadow-sm' : 'text-ink/50')}>{appearance}</button>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-8 rounded-2xl border border-ink/15 px-5 py-6">
+        <h2 className="font-serif text-xl text-ink">Notifications</h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-ink/50">Useful updates only. iPhone requires Sommeil to be added to the Home Screen.</p>
+        <PreferenceToggle label="Caregiver sleep updates" description="Know when another caregiver starts or ends sleep." checked={preferences.caregiver_updates_enabled} disabled={preferenceBusy} onChange={enableCaregiverUpdates} />
+        <PreferenceToggle label="Sleep-window reminders" description="A quiet reminder near the personalized range." checked={preferences.sleep_window_reminders_enabled} disabled={preferenceBusy} onChange={() => updatePreferences({ sleep_window_reminders_enabled: !preferences.sleep_window_reminders_enabled })} />
+      </section>
+
+      {role === 'owner' && (
+        <section className="mt-8 rounded-2xl border border-ink/15 px-5 py-6">
+          <h2 className="font-serif text-xl text-ink">AI explanations</h2>
+          <p className="mt-1 text-[13px] leading-relaxed text-ink/50">Optional daily wording based only on minimized aggregates. Names, emails, raw times, and session IDs are excluded. Core predictions never depend on AI.</p>
+          <PreferenceToggle label="Allow AI daily explanations" description="You can turn this off at any time." checked={preferences.ai_coach_enabled} disabled={preferenceBusy} onChange={() => updatePreferences({ ai_coach_enabled: !preferences.ai_coach_enabled })} />
+        </section>
       )}
 
       {isCaregiver ? (
@@ -296,5 +406,14 @@ export default function SettingsClient() {
 
       <BottomNav />
     </main>
+  )
+}
+
+function PreferenceToggle({ label, description, checked, disabled, onChange }: { label: string; description: string; checked: boolean; disabled: boolean; onChange: () => void }) {
+  return (
+    <div className="mt-5 flex items-center justify-between gap-4 border-t border-ink/10 pt-5">
+      <div><p className="text-sm font-medium text-ink">{label}</p><p className="mt-1 text-xs leading-relaxed text-ink/45">{description}</p></div>
+      <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onChange} className={clsx('relative h-8 w-14 shrink-0 rounded-full transition-colors', checked ? 'bg-sage' : 'bg-ink/15')}><span className={clsx('absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform', checked && 'translate-x-6')} /></button>
+    </div>
   )
 }

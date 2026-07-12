@@ -3,12 +3,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import clsx from 'clsx'
-import { History, Moon, Settings } from 'lucide-react'
+import { ChartNoAxesCombined, History, Moon, Settings } from 'lucide-react'
 
 const ITEMS = [
-  { href: '/', label: 'Sleep', icon: Moon },
-  { href: '/history', label: 'History', icon: History },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/track', label: 'Now', icon: Moon },
+  { href: '/history', label: 'Timeline', icon: History },
+  { href: '/insights', label: 'Insights', icon: ChartNoAxesCombined },
+  { href: '/settings', label: 'Family', icon: Settings },
 ] as const
 
 export default function BottomNav() {
@@ -22,7 +23,7 @@ export default function BottomNav() {
     >
       <div className="mx-auto flex max-w-md items-stretch justify-around">
         {ITEMS.map((item) => {
-          const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+          const active = pathname.startsWith(item.href)
           const Icon = item.icon
           return (
             <Link

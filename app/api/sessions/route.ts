@@ -4,11 +4,38 @@ import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getBabyForEmail } from '@/lib/babyAccess'
 import { rateLimit } from '@/lib/rateLimit'
-import type { SleepSession, SleepType } from '@/types'
+import type { SleepMutationResult, SleepSession, SleepState, SleepType } from '@/types'
+import { notifyCaregivers } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
 
 const MAX_RETRO_HOURS = 24
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function canonicalState(session: SleepSession | null): SleepState {
+  return session ? { status: 'sleeping', session } : { status: 'awake', session: null }
+}
+
+async function saveMutation(
+  babyId: string,
+  actorEmail: string,
+  mutationId: string | undefined,
+  action: 'start' | 'stop',
+  result: SleepMutationResult
+) {
+  if (!mutationId) return
+  const { error } = await supabaseAdmin.from('sleep_mutations').insert({
+    baby_id: babyId,
+    mutation_id: mutationId,
+    actor_email: actorEmail,
+    action,
+    session_id: result.session?.id ?? null,
+    result,
+  })
+  // A concurrent identical request can win this insert. The session-level
+  // constraints still guarantee a canonical state, so uniqueness is benign.
+  if (error && error.code !== '23505') throw error
+}
 
 async function getAccessibleBabyId(email: string): Promise<string | null> {
   const result = await getBabyForEmail(email)
@@ -74,6 +101,9 @@ export async function POST(req: NextRequest) {
     started_at?: string
     ended_at?: string
     notes?: string
+    mutation_id?: string
+    expected_session_id?: string
+    source?: string
   }
   try {
     body = await req.json()
@@ -86,6 +116,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   }
 
+  if (body.mutation_id !== undefined && !UUID_RE.test(body.mutation_id)) {
+    return NextResponse.json({ error: 'mutation_id must be a UUID' }, { status: 400 })
+  }
+
   let babyId: string | null
   try {
     babyId = await getAccessibleBabyId(session.user.email)
@@ -96,6 +130,21 @@ export async function POST(req: NextRequest) {
 
   if (!babyId) {
     return NextResponse.json({ error: 'no_baby' }, { status: 404 })
+  }
+
+
+  if (body.mutation_id) {
+    const { data: replay, error: replayError } = await supabaseAdmin
+      .from('sleep_mutations')
+      .select('result')
+      .eq('baby_id', babyId)
+      .eq('mutation_id', body.mutation_id)
+      .maybeSingle()
+    if (replayError) {
+      console.error(replayError)
+      return NextResponse.json({ error: 'db_error' }, { status: 500 })
+    }
+    if (replay) return NextResponse.json(replay.result as SleepMutationResult)
   }
 
   if (body.type !== undefined && body.type !== 'nap' && body.type !== 'night') {
@@ -115,6 +164,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'db_error' }, { status: 500 })
     }
     if (open) {
+      if (body.mutation_id) {
+        const { data: current } = await supabaseAdmin.from('sleep_sessions').select('*').eq('id', open.id).single()
+        const currentSession = current as SleepSession
+        const result: SleepMutationResult = {
+          mutation_id: body.mutation_id,
+          session: currentSession,
+          canonical_state: canonicalState(currentSession),
+          applied: false,
+          conflict: 'already_sleeping',
+        }
+        await saveMutation(babyId, session.user.email, body.mutation_id, 'start', result)
+        return NextResponse.json(result)
+      }
       return NextResponse.json({ error: 'already_sleeping' }, { status: 409 })
     }
 
@@ -158,19 +220,56 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from('sleep_sessions')
-      .insert({ baby_id: babyId, started_at: startedAt, type: body.type ?? 'nap' })
+      .insert({
+        baby_id: babyId,
+        started_at: startedAt,
+        type: body.type ?? 'nap',
+        created_by: session.user.email.toLowerCase(),
+        updated_by: session.user.email.toLowerCase(),
+        source: body.source === 'offline-replay' ? 'offline-replay' : 'web',
+      })
       .select()
       .single()
 
     if (error) {
       console.error(error)
       if (error.code === '23505') {
+        if (body.mutation_id) {
+          const { data: current } = await supabaseAdmin
+            .from('sleep_sessions')
+            .select('*')
+            .eq('baby_id', babyId)
+            .is('ended_at', null)
+            .single()
+          const currentSession = current as SleepSession
+          const result: SleepMutationResult = {
+            mutation_id: body.mutation_id,
+            session: currentSession,
+            canonical_state: canonicalState(currentSession),
+            applied: false,
+            conflict: 'already_sleeping',
+          }
+          await saveMutation(babyId, session.user.email, body.mutation_id, 'start', result)
+          return NextResponse.json(result)
+        }
         return NextResponse.json({ error: 'already_sleeping' }, { status: 409 })
       }
       return NextResponse.json({ error: 'db_error' }, { status: 500 })
     }
 
-    return NextResponse.json({ session: data as SleepSession }, { status: 201 })
+    const created = data as SleepSession
+    if (body.mutation_id) {
+      const result: SleepMutationResult = {
+        mutation_id: body.mutation_id,
+        session: created,
+        canonical_state: canonicalState(created),
+        applied: true,
+      }
+      await saveMutation(babyId, session.user.email, body.mutation_id, 'start', result)
+      await notifyCaregivers(babyId, session.user.email, { title: 'Sleep started', body: 'Baby is sleeping now.', url: '/track', tag: 'sleep-state' }).catch(console.error)
+      return NextResponse.json(result, { status: 201 })
+    }
+    return NextResponse.json({ session: created }, { status: 201 })
   }
 
   if (action === 'stop') {
@@ -186,13 +285,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'db_error' }, { status: 500 })
     }
     if (!open) {
+      if (body.mutation_id) {
+        const result: SleepMutationResult = {
+          mutation_id: body.mutation_id,
+          session: null,
+          canonical_state: canonicalState(null),
+          applied: false,
+          conflict: 'already_awake',
+        }
+        await saveMutation(babyId, session.user.email, body.mutation_id, 'stop', result)
+        return NextResponse.json(result)
+      }
       return NextResponse.json({ error: 'no_open_session' }, { status: 404 })
     }
 
+    if (body.expected_session_id && body.expected_session_id !== open.id) {
+      const { data: current } = await supabaseAdmin.from('sleep_sessions').select('*').eq('id', open.id).single()
+      const currentSession = current as SleepSession
+      const result: SleepMutationResult = {
+        mutation_id: body.mutation_id!,
+        session: currentSession,
+        canonical_state: canonicalState(currentSession),
+        applied: false,
+        conflict: 'stale_session',
+      }
+      await saveMutation(babyId, session.user.email, body.mutation_id, 'stop', result)
+      await notifyCaregivers(babyId, session.user.email, { title: 'Baby woke up', body: 'The shared timeline has been updated.', url: '/track', tag: 'sleep-state' }).catch(console.error)
+      return NextResponse.json(result)
+    }
+
+    const requestedEndMs = body.ended_at ? Date.parse(body.ended_at) : Date.now()
+    const endedAt = Number.isNaN(requestedEndMs) || requestedEndMs > Date.now()
+      ? new Date().toISOString()
+      : new Date(requestedEndMs).toISOString()
+
     const { data, error } = await supabaseAdmin
       .from('sleep_sessions')
-      .update({ ended_at: new Date().toISOString() })
+      .update({
+        ended_at: endedAt,
+        updated_by: session.user.email.toLowerCase(),
+        revision: 2,
+        source: body.source === 'offline-replay' ? 'offline-replay' : 'web',
+      })
       .eq('id', open.id)
+      .is('ended_at', null)
       .select()
       .single()
 
@@ -201,7 +337,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'db_error' }, { status: 500 })
     }
 
-    return NextResponse.json({ session: data as SleepSession })
+    const stopped = data as SleepSession
+    if (body.mutation_id) {
+      const result: SleepMutationResult = {
+        mutation_id: body.mutation_id,
+        session: stopped,
+        canonical_state: canonicalState(null),
+        applied: true,
+      }
+      await saveMutation(babyId, session.user.email, body.mutation_id, 'stop', result)
+      return NextResponse.json(result)
+    }
+    return NextResponse.json({ session: stopped })
   }
 
   // action === 'manual'

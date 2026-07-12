@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   let body: {
     started_at?: string
-    ended_at?: string
+    ended_at?: string | null
     type?: SleepType
     notes?: string | null
   }
@@ -100,7 +100,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  const updates: Record<string, string | null> = {}
+  const updates: Record<string, string | number | null> = {
+    updated_by: session.user.email.toLowerCase(),
+    revision: (existing.revision ?? 1) + 1,
+  }
   if (body.started_at !== undefined) updates.started_at = body.started_at
   if (body.ended_at !== undefined) updates.ended_at = body.ended_at
   if (body.type !== undefined) updates.type = body.type

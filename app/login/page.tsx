@@ -15,7 +15,7 @@ export default function LoginPage() {
 
         <button
           type="button"
-          onClick={() => signIn('google', { callbackUrl: '/' })}
+          onClick={() => signIn('google', { callbackUrl: '/track' })}
           className="flex min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-ink/15 bg-white/30 px-6 text-[15px] font-medium text-ink transition-colors active:bg-ink/5"
         >
           <GoogleGlyph />
