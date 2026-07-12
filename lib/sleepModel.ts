@@ -73,6 +73,92 @@ export function wakeWindow(ageMonths: number): WakeWindow {
   return { minMin: 240, maxMin: 360 }
 }
 
+export type Confidence = 'low' | 'medium' | 'high'
+
+export interface WakeWindowObservation {
+  minutesAwake: number
+  observedAt: Date
+}
+
+const OBSERVATION_WINDOW_DAYS = 30
+const MAX_GAP_HOURS = 24
+const COLD_START_THRESHOLD = 8
+const MIN_WINDOW_MIN = 20
+const MAX_WINDOW_MIN = 480
+
+export function wakeWindowObservations(sessions: SleepSession[], now: Date): WakeWindowObservation[] {
+  const completed = sessions
+    .filter((s) => s.ended_at !== null)
+    .sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime())
+
+  const cutoff = now.getTime() - OBSERVATION_WINDOW_DAYS * 24 * 60 * MS_PER_MIN
+
+  const observations: WakeWindowObservation[] = []
+  for (let i = 1; i < completed.length; i++) {
+    const prevEnd = new Date(completed[i - 1].ended_at!).getTime()
+    const nextStart = new Date(completed[i].started_at).getTime()
+    const minutesAwake = (nextStart - prevEnd) / MS_PER_MIN
+
+    if (minutesAwake < 0 || minutesAwake > MAX_GAP_HOURS * 60) continue
+    if (nextStart < cutoff) continue
+
+    observations.push({ minutesAwake, observedAt: new Date(nextStart) })
+  }
+
+  return observations
+}
+
+export interface PersonalizedWindow {
+  window: WakeWindow
+  confidence: Confidence
+  sampleCount: number
+  observations: WakeWindowObservation[]
+}
+
+export function personalizedWindow(
+  sessions: SleepSession[],
+  birthDate: string,
+  now: Date
+): PersonalizedWindow {
+  const ageWindow = wakeWindow(ageInMonths(birthDate, now))
+  const ageMidpoint = (ageWindow.minMin + ageWindow.maxMin) / 2
+  const ageHalfWidth = (ageWindow.maxMin - ageWindow.minMin) / 2
+
+  const rawObservations = wakeWindowObservations(sessions, now)
+  const clippedValues = clipOutliersIQR(rawObservations.map((o) => o.minutesAwake))
+  const clipped = rawObservations.filter((o) => clippedValues.includes(o.minutesAwake))
+
+  const weighted: WeightedObservation[] = clipped.map((o) => ({
+    value: o.minutesAwake,
+    weight: recencyWeight((now.getTime() - o.observedAt.getTime()) / (24 * 60 * MS_PER_MIN)),
+  }))
+
+  const n = clipped.length
+  const personalizedMean = weightedMean(weighted)
+  const personalizedStdDev = weightedStdDev(weighted, personalizedMean)
+  const personalizedHalfWidth = 0.75 * personalizedStdDev
+
+  const blend = Math.min(n / COLD_START_THRESHOLD, 1)
+  const blendedMean = n === 0 ? ageMidpoint : ageMidpoint * (1 - blend) + personalizedMean * blend
+  const blendedHalfWidth = n === 0 ? ageHalfWidth : ageHalfWidth * (1 - blend) + personalizedHalfWidth * blend
+
+  const minMin = Math.max(MIN_WINDOW_MIN, blendedMean - blendedHalfWidth)
+  const maxMin = Math.min(MAX_WINDOW_MIN, Math.max(minMin + 1, blendedMean + blendedHalfWidth))
+
+  let confidence: Confidence = n < 4 ? 'low' : n < 12 ? 'medium' : 'high'
+  const cv = personalizedMean > 0 ? personalizedStdDev / personalizedMean : 0
+  if (cv > 0.5 && confidence !== 'low') {
+    confidence = confidence === 'high' ? 'medium' : 'low'
+  }
+
+  return {
+    window: { minMin, maxMin },
+    confidence,
+    sampleCount: n,
+    observations: clipped,
+  }
+}
+
 export type SleepStatus = 'sleeping' | 'awake-ok' | 'tired-soon' | 'overtired'
 
 export interface SleepPrediction {
@@ -87,7 +173,7 @@ export function predictNextSleep(
   birthDate: string,
   now: Date = new Date()
 ): SleepPrediction {
-  const window = wakeWindow(ageInMonths(birthDate, now))
+  const window = personalizedWindow(sessions, birthDate, now).window
 
   const openSession = sessions.find((s) => s.ended_at === null)
   if (openSession) {
