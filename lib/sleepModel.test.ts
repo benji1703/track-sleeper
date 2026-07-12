@@ -7,6 +7,7 @@ import {
   wakeWindowObservations,
   personalizedWindow,
   predictNextSleep,
+  computeInsights,
 } from './sleepModel'
 import type { SleepSession } from '@/types'
 
@@ -145,6 +146,29 @@ describe('personalizedWindow', () => {
     expect(result.confidence).toBe('high')
     expect(result.window.minMin).toBeLessThan(150)
     expect(result.window.maxMin).toBeGreaterThan(90)
+  })
+})
+
+describe('computeInsights', () => {
+  it('returns no insights below medium confidence', () => {
+    const now = new Date('2026-07-12T12:00:00Z')
+    const sessions = [session('1', '2026-07-12T08:00:00Z', '2026-07-12T09:00:00Z')]
+    expect(computeInsights(sessions, '2026-04-12', now)).toEqual([])
+  })
+
+  it('flags a stretching trend', () => {
+    const now = new Date('2026-07-12T12:00:00Z')
+
+    // Prior segment: 7 gaps of 60min, ending ~7 days ago. Recent segment:
+    // 7 gaps of 150min, ending now. The multi-day jump between segments
+    // exceeds the 24h cutoff in wakeWindowObservations and is dropped
+    // automatically, so the two segments can't contaminate each other.
+    const priorEndingAt = new Date(now.getTime() - 7 * 24 * 3600 * 1000)
+    const recentEndingAt = now
+    const sessions = [...buildChain(8, 60, priorEndingAt), ...buildChain(8, 150, recentEndingAt)]
+
+    const insights = computeInsights(sessions, '2026-01-12', now)
+    expect(insights.some((i) => i.text.toLowerCase().includes('stretch'))).toBe(true)
   })
 })
 

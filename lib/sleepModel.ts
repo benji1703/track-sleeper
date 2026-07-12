@@ -159,6 +159,127 @@ export function personalizedWindow(
   }
 }
 
+export type InsightSeverity = 'info' | 'notable'
+
+export interface Insight {
+  text: string
+  severity: InsightSeverity
+}
+
+function weightedMeanOfRange(
+  observations: WakeWindowObservation[],
+  now: Date,
+  startDaysAgo: number,
+  endDaysAgo: number
+): { mean: number; count: number } {
+  const inRange = observations.filter((o) => {
+    const ageDays = (now.getTime() - o.observedAt.getTime()) / (24 * 60 * MS_PER_MIN)
+    return ageDays >= endDaysAgo && ageDays < startDaysAgo
+  })
+  const weighted: WeightedObservation[] = inRange.map((o) => ({
+    value: o.minutesAwake,
+    weight: recencyWeight((now.getTime() - o.observedAt.getTime()) / (24 * 60 * MS_PER_MIN)),
+  }))
+  return { mean: weightedMean(weighted), count: inRange.length }
+}
+
+function napsBeforeCutoff(sessions: SleepSession[], dayISO: string, tz: string, cutoff: Date): number {
+  const { dayStart } = dayBoundsInTz(dayISO, tz)
+  return sessions.filter((s) => {
+    if (s.type !== 'nap') return false
+    const start = new Date(s.started_at)
+    return start >= dayStart && start < cutoff
+  }).length
+}
+
+export function computeInsights(
+  sessions: SleepSession[],
+  birthDate: string,
+  now: Date,
+  tz: string = 'Asia/Jerusalem'
+): Insight[] {
+  const model = personalizedWindow(sessions, birthDate, now)
+  if (model.confidence === 'low') return []
+
+  const insights: Insight[] = []
+
+  // 1. Trend: last 7 days vs. prior 7-14 days.
+  const recent = weightedMeanOfRange(model.observations, now, 7, 0)
+  const prior = weightedMeanOfRange(model.observations, now, 14, 7)
+  if (recent.count > 0 && prior.count > 0 && prior.mean > 0) {
+    const deltaMin = recent.mean - prior.mean
+    const deltaPct = Math.abs(deltaMin) / prior.mean
+    if (Math.abs(deltaMin) > 15 && deltaPct > 0.2) {
+      insights.push({
+        text: `Wake windows have been ${deltaMin > 0 ? 'stretching' : 'shortening'} this week`,
+        severity: 'notable',
+      })
+    }
+  }
+
+  // 2. Anomaly: most recent observation vs. overall personalized mean.
+  const sortedObs = [...model.observations].sort((a, b) => b.observedAt.getTime() - a.observedAt.getTime())
+  const latest = sortedObs[0]
+  if (latest) {
+    const weighted: WeightedObservation[] = model.observations.map((o) => ({
+      value: o.minutesAwake,
+      weight: recencyWeight((now.getTime() - o.observedAt.getTime()) / (24 * 60 * MS_PER_MIN)),
+    }))
+    const mean = weightedMean(weighted)
+    const stddev = weightedStdDev(weighted, mean)
+    if (stddev > 0) {
+      const deviation = latest.minutesAwake - mean
+      if (Math.abs(deviation) > 1.5 * stddev) {
+        const diffMin = Math.round(Math.abs(deviation))
+        insights.push({
+          text:
+            deviation < 0
+              ? `That was a short one — ${diffMin}min under the usual`
+              : `That was a long one — ${diffMin}min over the usual`,
+          severity: 'notable',
+        })
+      }
+    }
+  }
+
+  // 3. Nap-count deviation vs. same-time-of-day 14-day average.
+  const todayISO = dateISOInTzLocal(now, tz)
+  const todayCount = napsBeforeCutoff(sessions, todayISO, tz, now)
+  const priorCounts: number[] = []
+  for (let d = 1; d <= 14; d++) {
+    const dayDate = new Date(now.getTime() - d * 24 * 3600 * 1000)
+    const dayISO = dateISOInTzLocal(dayDate, tz)
+    const { dayStart } = dayBoundsInTz(dayISO, tz)
+    const cutoffSameTime = new Date(
+      dayStart.getTime() + (now.getTime() - dayBoundsInTz(todayISO, tz).dayStart.getTime())
+    )
+    priorCounts.push(napsBeforeCutoff(sessions, dayISO, tz, cutoffSameTime))
+  }
+  const typicalCount = priorCounts.reduce((a, b) => a + b, 0) / priorCounts.length
+  if (typicalCount >= 1 && Math.abs(todayCount - typicalCount) >= 1) {
+    insights.push({
+      text: todayCount < typicalCount ? 'Fewer naps than usual today so far' : 'More naps than usual today so far',
+      severity: 'info',
+    })
+  }
+
+  return insights.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'notable' ? -1 : 1))
+}
+
+function dateISOInTzLocal(date: Date, tz: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const map: Record<string, string> = {}
+  for (const part of parts) {
+    if (part.type !== 'literal') map[part.type] = part.value
+  }
+  return `${map.year}-${map.month}-${map.day}`
+}
+
 export type SleepStatus = 'sleeping' | 'awake-ok' | 'tired-soon' | 'overtired'
 
 export interface SleepPrediction {
