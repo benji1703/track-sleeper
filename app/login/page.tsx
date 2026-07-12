@@ -5,9 +5,9 @@ import { signIn } from 'next-auth/react'
 export default function LoginPage() {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center p-6">
-      <div className="flex w-full max-w-xs flex-col items-center gap-16">
+      <div className="flex w-full max-w-xs flex-col items-center gap-14">
         <div className="flex flex-col items-center gap-3 text-center">
-          <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">
+          <p className="text-sm text-ink/50">
             A quiet way to track sleep
           </p>
           <h1 className="font-serif text-5xl italic text-ink">Sommeil</h1>
@@ -16,13 +16,13 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={() => signIn('google', { callbackUrl: '/' })}
-          className="flex h-14 w-full items-center justify-center gap-3 rounded-full border border-ink/15 bg-transparent px-6 text-[15px] text-ink transition-colors active:bg-ink/5"
+          className="flex min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-ink/15 bg-white/30 px-6 text-[15px] font-medium text-ink transition-colors active:bg-ink/5"
         >
           <GoogleGlyph />
           <span className="tracking-[0.02em]">Continue with Google</span>
         </button>
 
-        <p className="text-[11px] tracking-[0.15em] uppercase text-ink/35">Track Sleeper</p>
+        <p className="text-xs text-ink/35">Track Sleeper</p>
       </div>
     </main>
   )

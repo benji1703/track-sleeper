@@ -18,6 +18,7 @@ import { fmtTime, fmtDuration } from '@/lib/format'
 import BottomNav from '@/components/BottomNav'
 import { PageSkeleton, LoadErrorCard } from '@/components/Skeleton'
 import { TZ, MS_PER_MIN, dayBoundsInTz, dateISOInTz, localHourInTz } from '@/components/timeUtils'
+import { apiFetch } from '@/lib/apiClient'
 
 function toDatetimeLocal(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -269,27 +270,35 @@ export default function TrackerClient() {
   const load = useCallback(async () => {
     setError(null)
     try {
-      const babyRes = await fetch('/api/baby')
-      if (!babyRes.ok) throw new Error('Could not load baby profile.')
-      const babyData: { baby: Baby | null } = await babyRes.json()
-
-      // Fetch sessions BEFORE committing any state: setting `baby` early
-      // renders the awake card with empty data ("Ready when you are")
-      // instead of the skeleton.
-      let loadedSessions: SleepSession[] = []
-      if (babyData.baby) {
-        const to = new Date()
-        const from = new Date(to.getTime() - 30 * 24 * 3600 * 1000)
-        const sessionsRes = await fetch(
+      const to = new Date()
+      const from = new Date(to.getTime() - 30 * 24 * 3600 * 1000)
+      const [babyResult, sessionsResult] = await Promise.allSettled([
+        apiFetch('/api/baby'),
+        apiFetch(
           `/api/sessions?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(
             to.toISOString()
           )}`
-        )
-        if (!sessionsRes.ok) throw new Error('Could not load sleep sessions.')
-        const sessionsData: { sessions: SleepSession[] } = await sessionsRes.json()
-        loadedSessions = sessionsData.sessions
+        ),
+      ])
+
+      if (babyResult.status === 'rejected') throw babyResult.reason
+      const babyRes = babyResult.value
+      if (!babyRes.ok) throw new Error('Could not load baby profile.')
+      const babyData: { baby: Baby | null } = await babyRes.json()
+
+      // A new account can continue to onboarding even if the speculative
+      // sessions request fails.
+      if (!babyData.baby) {
+        setSessions([])
+        setBaby(null)
+        return
       }
-      setSessions(loadedSessions)
+
+      if (sessionsResult.status === 'rejected') throw sessionsResult.reason
+      const sessionsRes = sessionsResult.value
+      if (!sessionsRes.ok) throw new Error('Could not load sleep sessions.')
+      const sessionsData: { sessions: SleepSession[] } = await sessionsRes.json()
+      setSessions(sessionsData.sessions)
       setBaby(babyData.baby)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -308,26 +317,21 @@ export default function TrackerClient() {
     return () => clearInterval(interval)
   }, [openSession])
 
-  useEffect(() => {
-    if (!openSession) {
-      setManualType(isNightHour(localHourInTz(now, TZ)) ? 'night' : 'nap')
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openSession])
-
   async function handleOnboard(e: React.FormEvent) {
     e.preventDefault()
     if (!onboardName.trim() || !onboardBirth) return
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/baby', {
+      const res = await apiFetch('/api/baby', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: onboardName.trim(), birth_date: onboardBirth }),
       })
       if (!res.ok) throw new Error('Could not save baby profile.')
-      await load()
+      const data: { baby: Baby } = await res.json()
+      setBaby(data.baby)
+      setSessions([])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
@@ -357,7 +361,7 @@ export default function TrackerClient() {
       if (retroOpen && retroAdjusted && retroValue) {
         body.started_at = new Date(retroValue).toISOString()
       }
-      const res = await fetch('/api/sessions', {
+      const res = await apiFetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -374,9 +378,11 @@ export default function TrackerClient() {
                 : 'Could not start sleep.'
         throw new Error(message)
       }
+      const data: { session: SleepSession } = await res.json()
+      setSessions((current) => [data.session, ...current.filter((s) => s.id !== data.session.id)])
+      setNow(new Date())
       setRetroOpen(false)
       setRetroAdjusted(false)
-      await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
@@ -388,13 +394,17 @@ export default function TrackerClient() {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/sessions', {
+      const res = await apiFetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'stop' }),
       })
       if (!res.ok) throw new Error('Could not stop sleep.')
-      await load()
+      const data: { session: SleepSession } = await res.json()
+      setSessions((current) => current.map((s) => (s.id === data.session.id ? data.session : s)))
+      const stoppedAt = new Date()
+      setNow(stoppedAt)
+      setManualType(isNightHour(localHourInTz(stoppedAt, TZ)) ? 'night' : 'nap')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
@@ -489,16 +499,16 @@ export default function TrackerClient() {
   const ageMonths = ageInMonths(baby.birth_date, now)
 
   return (
-    <main className="mx-auto min-h-dvh max-w-md px-6 pb-28 pt-10">
-      <header className="mb-10 flex flex-col gap-1">
-        <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">{baby.name}</p>
-        <h1 className="font-serif text-2xl text-ink">
+    <main className="page-shell">
+      <header className="mb-6 flex flex-col gap-1">
+        <p className="label">{baby.name}</p>
+        <h1 className="font-serif text-3xl text-ink">
           {openSession ? 'Sleeping' : 'Awake'}
         </h1>
       </header>
 
       {error && (
-        <p className="mb-6 rounded-xl border border-orange/30 bg-orange/5 px-4 py-3 text-[13px] text-orange">
+        <p role="alert" className="mb-5 rounded-lg border border-orange/30 bg-orange/5 px-4 py-3 text-sm text-orange">
           {error}
         </p>
       )}
@@ -538,8 +548,8 @@ export default function TrackerClient() {
         </div>
       )}
 
-      <section className="mt-10 flex flex-col gap-4">
-        <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Today</p>
+      <section className="mt-9 flex flex-col gap-4">
+        <p className="label">Today</p>
         <div className="relative h-8 overflow-hidden rounded-full border border-ink/15 bg-sand/40">
           {segments.map((seg) => (
             <div
@@ -552,18 +562,18 @@ export default function TrackerClient() {
         {segments.length === 0 && (
           <p className="-mt-2 text-[13px] italic text-ink/35">Nothing tracked today yet</p>
         )}
-        <div className="flex justify-between text-[11px] tracking-[0.15em] uppercase text-ink/35">
+        <div className="flex justify-between text-[11px] text-ink/35">
           <span>00:00</span>
           <span>12:00</span>
           <span>24:00</span>
         </div>
         <div className="flex items-baseline justify-between border-t border-ink/15 pt-4">
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Total slept</span>
+            <span className="label">Total slept</span>
             <span className="font-serif text-2xl font-bold tabular-nums text-ink">{fmtDuration(stats.totalMin)}</span>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Naps</span>
+            <span className="label">Naps</span>
             <span className="font-serif text-2xl font-bold tabular-nums text-ink">{stats.napCount}</span>
           </div>
         </div>
@@ -582,15 +592,18 @@ function SleepInfoSheet({ ageMonths, onClose }: { ageMonths: number; onClose: ()
   const info = sleepInfoForAge(ageMonths)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-ink/20" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end bg-ink/25" onClick={onClose}>
       <div
-        className="mx-auto max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border-t border-ink/15 bg-cream px-6 pt-3"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Sleep guidance"
+        className="mx-auto max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-lg border-t border-ink/10 bg-cream px-6 pt-3"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-ink/15" />
 
-        <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Sleep guidance</p>
+        <p className="label">Sleep guidance</p>
         <h2 className="mb-8 font-serif text-2xl text-ink">{info.label}</h2>
 
         <dl className="flex flex-col gap-4 border-t border-ink/15 pt-6">
@@ -626,7 +639,7 @@ function SleepInfoSheet({ ageMonths, onClose }: { ageMonths: number; onClose: ()
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between">
-      <dt className="text-[11px] tracking-[0.2em] uppercase text-ink/50">{label}</dt>
+      <dt className="label">{label}</dt>
       <dd className="font-serif text-lg text-ink">{value}</dd>
     </div>
   )
@@ -652,8 +665,8 @@ function SleepingCard({
   const elapsedS = Math.floor((elapsedMin * 60) % 60)
 
   return (
-    <div className="flex flex-col items-center gap-8 rounded-2xl border border-ink/15 px-6 py-10 text-center">
-      <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">
+    <section aria-live="polite" className="surface flex flex-col items-center gap-7 rounded-lg px-5 py-8 text-center">
+      <p className="label">
         Asleep since {fmtTime(startedAt)}
       </p>
       <p className="font-serif text-6xl font-bold tabular-nums text-ink">
@@ -665,18 +678,18 @@ function SleepingCard({
         type="button"
         onClick={onStop}
         disabled={busy}
-        className="h-14 w-full max-w-[220px] rounded-full bg-orange text-[15px] tracking-[0.1em] uppercase text-cream transition-opacity disabled:opacity-50"
+        className="min-h-16 w-full rounded-lg bg-orange px-6 text-base font-semibold text-white transition-colors active:bg-orange/90 disabled:opacity-50"
       >
-        Stop
+        {busy ? 'Saving…' : 'Wake up'}
       </button>
       <button
         type="button"
         onClick={onLearnMore}
-        className="text-[13px] text-ink/50 underline underline-offset-2"
+        className="min-h-11 px-3 text-sm text-ink/55 underline underline-offset-4"
       >
-        Learn about sleep at this age →
+        Sleep guidance
       </button>
-    </div>
+    </section>
   )
 }
 
@@ -712,7 +725,7 @@ function AwakeCard({
   onWakeWindowTap: () => void
 }) {
   const chipClass = clsx(
-    'inline-flex items-center rounded-full px-3 py-1 text-[11px] tracking-[0.15em] uppercase',
+    'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium',
     prediction.status === 'awake-ok' && 'bg-sage/15 text-sage',
     prediction.status === 'tired-soon' && 'border border-orange text-orange',
     prediction.status === 'overtired' && 'bg-orange text-cream'
@@ -720,36 +733,38 @@ function AwakeCard({
   const nowLocal = toDatetimeLocal(new Date())
 
   return (
-    <div className="flex flex-col gap-8 rounded-2xl border border-ink/15 px-6 py-8 text-center">
+    <section aria-live="polite" className="surface flex flex-col gap-7 rounded-lg px-5 py-7 text-center">
       <div className="flex flex-col items-center gap-3">
         <span className={chipClass}>{STATUS_LABEL[prediction.status] ?? prediction.status}</span>
         {prediction.nextSleepAt ? (
-          <p className="font-serif text-5xl font-bold tabular-nums text-ink">
-            Next <span className="font-normal text-ink/50">~</span>
-            {fmtTime(prediction.nextSleepAt)}
-          </p>
+          <div>
+            <p className="label mb-1">Likely sleepy around</p>
+            <p className="font-serif text-5xl font-bold tabular-nums text-ink">
+              {fmtTime(prediction.nextSleepAt)}
+            </p>
+          </div>
         ) : (
           <p className="font-serif text-3xl text-ink">Ready when you are</p>
         )}
         <button
           type="button"
           onClick={onWakeWindowTap}
-          className="text-[13px] text-ink/50 underline decoration-ink/25 underline-offset-4"
+          className="min-h-11 px-3 text-sm text-ink/55 underline decoration-ink/25 underline-offset-4"
         >
           Wake window {fmtDuration(prediction.wakeWindow.minMin)}–
           {fmtDuration(prediction.wakeWindow.maxMin)} ›
         </button>
       </div>
 
-      <div className="flex items-center justify-center gap-1 rounded-full border border-ink/15 p-1">
+      <div className="flex items-center justify-center gap-1 rounded-lg bg-ink/5 p-1" aria-label="Sleep type">
         {(['nap', 'night'] as SleepType[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => onTypeChange(t)}
             className={clsx(
-              'flex-1 rounded-full py-2 text-[11px] tracking-[0.2em] uppercase transition-colors',
-              manualType === t ? 'bg-ink text-cream' : 'text-ink/50'
+              'min-h-11 flex-1 rounded-md px-3 text-sm font-medium capitalize transition-colors',
+              manualType === t ? 'bg-white text-ink shadow-sm' : 'text-ink/50'
             )}
           >
             {t}
@@ -760,11 +775,11 @@ function AwakeCard({
       {retroOpen ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Started at</span>
+            <span className="label">Started at</span>
             <button
               type="button"
               onClick={onRetroReset}
-              className="text-[11px] tracking-[0.15em] uppercase text-orange"
+              className="min-h-11 px-2 text-sm font-medium text-orange"
             >
               Use current time
             </button>
@@ -774,7 +789,7 @@ function AwakeCard({
           </div>
         </div>
       ) : (
-        <button type="button" onClick={onRetroOpen} className="text-[13px] italic text-ink/40">
+        <button type="button" onClick={onRetroOpen} className="min-h-11 text-sm text-ink/50 underline underline-offset-4">
           Started earlier?
         </button>
       )}
@@ -783,11 +798,11 @@ function AwakeCard({
         type="button"
         onClick={onStart}
         disabled={busy}
-        className="h-14 w-full rounded-full bg-orange text-[15px] tracking-[0.1em] uppercase text-cream transition-opacity disabled:opacity-50"
+        className="min-h-16 w-full rounded-lg bg-orange px-6 text-base font-semibold text-white transition-colors active:bg-orange/90 disabled:opacity-50"
       >
-        Start sleep
+        {busy ? 'Saving…' : `Start ${manualType}`}
       </button>
-    </div>
+    </section>
   )
 }
 
@@ -795,7 +810,7 @@ function InsightCard({ insight }: { insight: Insight }) {
   return (
     <div
       className={clsx(
-        'flex items-center gap-3 rounded-2xl border px-5 py-4 text-[13px] leading-relaxed',
+        'flex items-center gap-3 rounded-lg border px-5 py-4 text-sm leading-relaxed',
         insight.severity === 'notable'
           ? 'border-orange/30 bg-orange/5 text-orange'
           : 'border-ink/15 bg-transparent text-ink/60'
@@ -819,12 +834,12 @@ function PredictionModelCard({
     model.confidence === 'high' ? 'High' : model.confidence === 'medium' ? 'Medium' : 'Learning'
 
   return (
-    <section className="mt-4 rounded-2xl border border-ink/15 px-5 py-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Personalized prediction</p>
+    <details className="mt-4 border-b border-ink/10 px-1 py-2">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm text-ink/55">
+        <span>How this estimate is calculated</span>
         <span
           className={clsx(
-            'rounded-full px-3 py-1 text-[10px] tracking-[0.15em] uppercase',
+            'rounded-full px-3 py-1 text-xs font-medium',
             model.confidence === 'high' && 'bg-sage/15 text-sage',
             model.confidence === 'medium' && 'border border-ink/15 text-ink/55',
             model.confidence === 'low' && 'bg-sand/50 text-ink/45'
@@ -832,9 +847,9 @@ function PredictionModelCard({
         >
           {confidenceLabel}
         </span>
-      </div>
+      </summary>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-4 pb-4 pt-3">
         <Metric label="Next sleep" value={prediction.nextSleepAt ? `~${fmtTime(prediction.nextSleepAt)}` : 'No wake yet'} />
         <Metric
           label="Wake window"
@@ -851,14 +866,14 @@ function PredictionModelCard({
           Log a few completed sleeps to personalize the prediction.
         </p>
       )}
-    </section>
+    </details>
   )
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <span className="truncate text-[10px] tracking-[0.18em] uppercase text-ink/40">{label}</span>
+      <span className="truncate text-xs text-ink/45">{label}</span>
       <span className="truncate font-serif text-lg font-bold tabular-nums text-ink">{value}</span>
     </div>
   )

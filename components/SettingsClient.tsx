@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import clsx from 'clsx'
+import { apiFetch } from '@/lib/apiClient'
 import type { Baby, CaregiverRole } from '@/types'
 import { ageInMonths } from '@/lib/sleepModel'
 import BottomNav from '@/components/BottomNav'
@@ -42,7 +43,7 @@ export default function SettingsClient() {
   const load = useCallback(async () => {
     setError(null)
     try {
-      const res = await fetch('/api/baby')
+      const res = await apiFetch('/api/baby')
       if (!res.ok) throw new Error('Could not load baby profile.')
       const data: { baby: Baby | null; role: CaregiverRole | null; caregivers: { email: string }[] } =
         await res.json()
@@ -69,7 +70,7 @@ export default function SettingsClient() {
     setError(null)
     setSaved(false)
     try {
-      const res = await fetch('/api/baby', {
+      const res = await apiFetch('/api/baby', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), birth_date: birthDate }),
@@ -91,7 +92,7 @@ export default function SettingsClient() {
     setInviteBusy(true)
     setInviteError(null)
     try {
-      const res = await fetch('/api/baby/share', {
+      const res = await apiFetch('/api/baby/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: inviteEmail.trim() }),
@@ -123,7 +124,7 @@ export default function SettingsClient() {
     setInviteBusy(true)
     setInviteError(null)
     try {
-      const res = await fetch('/api/baby/share', {
+      const res = await apiFetch('/api/baby/share', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

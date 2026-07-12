@@ -164,6 +164,9 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error(error)
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'already_sleeping' }, { status: 409 })
+      }
       return NextResponse.json({ error: 'db_error' }, { status: 500 })
     }
 
@@ -218,12 +221,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'started_at and ended_at must be in the past' }, { status: 400 })
   }
 
+  const startedIso = new Date(startedMs).toISOString()
+  const endedIso = new Date(endedMs).toISOString()
+  const { data: overlapping, error: overlapError } = await supabaseAdmin
+    .from('sleep_sessions')
+    .select('id')
+    .eq('baby_id', babyId)
+    .lt('started_at', endedIso)
+    .or(`ended_at.is.null,ended_at.gt.${startedIso}`)
+    .limit(1)
+
+  if (overlapError) {
+    console.error(overlapError)
+    return NextResponse.json({ error: 'db_error' }, { status: 500 })
+  }
+  if (overlapping && overlapping.length > 0) {
+    return NextResponse.json({ error: 'overlaps_existing' }, { status: 409 })
+  }
+
   const { data, error } = await supabaseAdmin
     .from('sleep_sessions')
     .insert({
       baby_id: babyId,
-      started_at,
-      ended_at,
+      started_at: startedIso,
+      ended_at: endedIso,
       type: body.type ?? 'nap',
       notes: body.notes ?? null,
     })

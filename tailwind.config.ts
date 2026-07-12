@@ -8,16 +8,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        orange: '#F37021',
-        cream: '#FAF6F0',
-        ink: '#1A1A1A',
-        sand: '#E8E0D5',
-        sage: '#9CA88E',
+        // Kept under the existing semantic names to avoid a noisy class
+        // migration. The values form a low-glare evening palette.
+        orange: '#C66A5A',
+        cream: '#F5F3EE',
+        ink: '#273238',
+        sand: '#DDDCD4',
+        sage: '#6E8B82',
       },
       fontFamily: {
-        // Self-hosted via next/font (see app/layout.tsx). Frank Ruhl Libre
-        // is the elegant editorial serif rsvp.arbibe.dev falls back to for
-        // Latin text; Inter is a clean, iOS-SF-Pro-like sans for UI text.
+        // Loaded through next/font in app/layout.tsx.
         serif: ['var(--font-serif)', 'Georgia', '"Times New Roman"', 'serif'],
         sans: [
           'var(--font-sans)',

@@ -23,7 +23,8 @@ async function findAccessibleSession(email: string, sessionId: string) {
   return (existing as SleepSession | null) ?? null
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -51,7 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   let existing: SleepSession | null
   try {
-    existing = await findAccessibleSession(session.user.email, params.id)
+    existing = await findAccessibleSession(session.user.email, id)
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'db_error' }, { status: 500 })
@@ -74,6 +75,30 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (endedAt && Date.parse(endedAt) <= Date.parse(startedAt)) {
     return NextResponse.json({ error: 'ended_at must be after started_at' }, { status: 400 })
   }
+  if (Date.parse(startedAt) > Date.now() || (endedAt && Date.parse(endedAt) > Date.now())) {
+    return NextResponse.json({ error: 'session times must be in the past' }, { status: 400 })
+  }
+
+  if (endedAt) {
+    const startedIso = new Date(startedAt).toISOString()
+    const endedIso = new Date(endedAt).toISOString()
+    const { data: overlapping, error: overlapError } = await supabaseAdmin
+      .from('sleep_sessions')
+      .select('id')
+      .eq('baby_id', existing.baby_id)
+      .neq('id', existing.id)
+      .lt('started_at', endedIso)
+      .or(`ended_at.is.null,ended_at.gt.${startedIso}`)
+      .limit(1)
+
+    if (overlapError) {
+      console.error(overlapError)
+      return NextResponse.json({ error: 'db_error' }, { status: 500 })
+    }
+    if (overlapping && overlapping.length > 0) {
+      return NextResponse.json({ error: 'overlaps_existing' }, { status: 409 })
+    }
+  }
 
   const updates: Record<string, string | null> = {}
   if (body.started_at !== undefined) updates.started_at = body.started_at
@@ -84,7 +109,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data, error } = await supabaseAdmin
     .from('sleep_sessions')
     .update(updates)
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('baby_id', existing.baby_id)
     .select()
     .single()
@@ -97,7 +122,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ session: data as SleepSession })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -109,7 +135,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 
   let existing: SleepSession | null
   try {
-    existing = await findAccessibleSession(session.user.email, params.id)
+    existing = await findAccessibleSession(session.user.email, id)
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'db_error' }, { status: 500 })
@@ -122,7 +148,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const { error } = await supabaseAdmin
     .from('sleep_sessions')
     .delete()
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('baby_id', existing.baby_id)
 
   if (error) {

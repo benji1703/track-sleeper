@@ -21,12 +21,15 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Track Sleeper',
+  title: 'Sommeil',
   description: 'A quiet way to track your baby\'s sleep.',
+  applicationName: 'Sommeil',
+  manifest: '/manifest.webmanifest',
+  formatDetection: { telephone: false },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Sleeper',
+    title: 'Sommeil',
   },
 }
 
@@ -34,7 +37,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#FAF6F0',
+  themeColor: '#F5F3EE',
 }
 
 export default function RootLayout({

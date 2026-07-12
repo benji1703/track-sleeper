@@ -20,6 +20,9 @@ const securityHeaders = [
 ]
 
 const config = {
+  turbopack: {
+    root: process.cwd(),
+  },
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }]
   },

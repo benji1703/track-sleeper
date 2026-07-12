@@ -9,6 +9,7 @@ import { fmtTime, fmtDuration, fmtDate } from '@/lib/format'
 import BottomNav from '@/components/BottomNav'
 import { PageSkeleton, LoadErrorCard } from '@/components/Skeleton'
 import { TZ, dayBoundsInTz, dateISOInTz } from '@/components/timeUtils'
+import { apiFetch } from '@/lib/apiClient'
 
 const DAYS_BACK = 14
 
@@ -37,7 +38,7 @@ export default function HistoryClient() {
     try {
       const to = new Date()
       const from = new Date(to.getTime() - DAYS_BACK * 24 * 3600 * 1000)
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/sessions?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(
           to.toISOString()
         )}`
@@ -119,7 +120,7 @@ export default function HistoryClient() {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch(`/api/sessions/${selected.id}`, { method: 'DELETE' })
+      const res = await apiFetch(`/api/sessions/${selected.id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Could not delete session.')
       closeDetail()
       await load()
@@ -145,7 +146,7 @@ export default function HistoryClient() {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch('/api/sessions', {
+      const res = await apiFetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
