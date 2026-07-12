@@ -2,6 +2,53 @@ import type { SleepSession } from '@/types'
 
 const MS_PER_MIN = 60_000
 
+export function recencyWeight(ageDays: number, halfLifeDays: number = 5): number {
+  return Math.pow(0.5, ageDays / halfLifeDays)
+}
+
+export function clipOutliersIQR(values: number[]): number[] {
+  if (values.length < 4) return values
+
+  const sorted = [...values].sort((a, b) => a - b)
+  const q1 = quantile(sorted, 0.25)
+  const q3 = quantile(sorted, 0.75)
+  const iqr = q3 - q1
+  const lower = q1 - 1.5 * iqr
+  const upper = q3 + 1.5 * iqr
+
+  return values.filter((v) => v >= lower && v <= upper)
+}
+
+function quantile(sortedValues: number[], q: number): number {
+  const pos = (sortedValues.length - 1) * q
+  const base = Math.floor(pos)
+  const rest = pos - base
+  if (sortedValues[base + 1] !== undefined) {
+    return sortedValues[base] + rest * (sortedValues[base + 1] - sortedValues[base])
+  }
+  return sortedValues[base]
+}
+
+export interface WeightedObservation {
+  value: number
+  weight: number
+}
+
+export function weightedMean(obs: WeightedObservation[]): number {
+  if (obs.length === 0) return 0
+  const weightSum = obs.reduce((sum, o) => sum + o.weight, 0)
+  if (weightSum === 0) return 0
+  return obs.reduce((sum, o) => sum + o.value * o.weight, 0) / weightSum
+}
+
+export function weightedStdDev(obs: WeightedObservation[], mean: number): number {
+  if (obs.length < 2) return 0
+  const weightSum = obs.reduce((sum, o) => sum + o.weight, 0)
+  if (weightSum === 0) return 0
+  const variance = obs.reduce((sum, o) => sum + o.weight * (o.value - mean) ** 2, 0) / weightSum
+  return Math.sqrt(variance)
+}
+
 export function ageInMonths(birthDate: string, now: Date = new Date()): number {
   const birth = new Date(birthDate)
   const msDiff = now.getTime() - birth.getTime()
