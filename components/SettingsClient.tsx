@@ -251,49 +251,49 @@ export default function SettingsClient() {
         </p>
       )}
 
-      <section className="mt-8 rounded-2xl border border-ink/15 px-5 py-6">
+      <section className="mt-8 rounded-2xl border border-line bg-surface px-5 py-6">
         <h2 className="font-serif text-xl text-ink">Comfort</h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-ink/50">Choose how Sommeil looks during late-night updates.</p>
-        <div className="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-ink/5 p-1" aria-label="Appearance">
+        <p className="mt-1 text-[13px] leading-relaxed text-muted">Choose how Sommeil looks during late-night updates.</p>
+        <div className="mt-4 grid grid-cols-3 gap-1 rounded-xl bg-sand/55 p-1" aria-label="Appearance">
           {(['automatic', 'light', 'dark'] as const).map((appearance) => (
-            <button key={appearance} type="button" disabled={preferenceBusy} onClick={() => updatePreferences({ appearance })} className={clsx('min-h-11 rounded-lg text-xs font-medium capitalize', preferences.appearance === appearance ? 'bg-white text-ink shadow-sm' : 'text-ink/50')}>{appearance}</button>
+            <button key={appearance} type="button" disabled={preferenceBusy} onClick={() => updatePreferences({ appearance })} className={clsx('min-h-11 rounded-lg text-xs font-medium capitalize', preferences.appearance === appearance ? 'bg-surface-raised text-ink shadow-sm' : 'text-muted')}>{appearance}</button>
           ))}
         </div>
       </section>
 
-      <section className="mt-8 rounded-2xl border border-ink/15 px-5 py-6">
+      <section className="mt-8 rounded-2xl border border-line bg-surface px-5 py-6">
         <h2 className="font-serif text-xl text-ink">Notifications</h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-ink/50">Useful updates only. iPhone requires Sommeil to be added to the Home Screen.</p>
+        <p className="mt-1 text-[13px] leading-relaxed text-muted">Useful updates only. iPhone requires Sommeil to be added to the Home Screen.</p>
         <PreferenceToggle label="Caregiver sleep updates" description="Know when another caregiver starts or ends sleep." checked={preferences.caregiver_updates_enabled} disabled={preferenceBusy} onChange={enableCaregiverUpdates} />
         <PreferenceToggle label="Sleep-window reminders" description="A quiet reminder near the personalized range." checked={preferences.sleep_window_reminders_enabled} disabled={preferenceBusy} onChange={() => updatePreferences({ sleep_window_reminders_enabled: !preferences.sleep_window_reminders_enabled })} />
       </section>
 
       {role === 'owner' && (
-        <section className="mt-8 rounded-2xl border border-ink/15 px-5 py-6">
+        <section className="mt-8 rounded-2xl border border-line bg-surface px-5 py-6">
           <h2 className="font-serif text-xl text-ink">AI explanations</h2>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink/50">Optional daily wording based only on minimized aggregates. Names, emails, raw times, and session IDs are excluded. Core predictions never depend on AI.</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-muted">Optional daily wording based only on minimized aggregates. Names, emails, raw times, and session IDs are excluded. Core predictions never depend on AI.</p>
           <PreferenceToggle label="Allow AI daily explanations" description="You can turn this off at any time." checked={preferences.ai_coach_enabled} disabled={preferenceBusy} onChange={() => updatePreferences({ ai_coach_enabled: !preferences.ai_coach_enabled })} />
         </section>
       )}
 
       {isCaregiver ? (
-        <div className="flex flex-col gap-8 rounded-2xl border border-ink/15 px-6 py-8">
+        <div className="flex flex-col gap-8 rounded-2xl border border-line bg-surface px-6 py-8">
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Baby</span>
+              <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Baby</span>
             <span className="font-serif text-2xl text-ink">{baby?.name}</span>
           </div>
           {baby && (
             <div className="flex flex-col gap-1">
-              <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Age</span>
-              <span className="text-[15px] text-ink/70">{formatAge(ageInMonths(baby.birth_date))} old</span>
+              <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Age</span>
+              <span className="text-[15px] text-ink">{formatAge(ageInMonths(baby.birth_date))} old</span>
             </div>
           )}
-          <p className="border-t border-ink/15 pt-6 text-[13px] text-ink/50">Shared with you</p>
+          <p className="border-t border-line pt-6 text-[13px] text-muted">Shared with you</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-8 rounded-2xl border border-ink/15 px-6 py-8">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-8 rounded-2xl border border-line bg-surface px-6 py-8">
           <label className="flex flex-col gap-2">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Name</span>
+            <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Name</span>
             <input
               type="text"
               value={name}
@@ -302,12 +302,12 @@ export default function SettingsClient() {
                 setSaved(false)
               }}
               required
-              className="h-12 rounded-xl border border-ink/15 bg-transparent px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
+              className="h-12 rounded-xl border border-line-strong bg-surface-raised px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
             />
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Birth date</span>
+            <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Birth date</span>
             <input
               type="date"
               value={birthDate}
@@ -316,10 +316,10 @@ export default function SettingsClient() {
                 setSaved(false)
               }}
               required
-              className="h-12 rounded-xl border border-ink/15 bg-transparent px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
+              className="h-12 rounded-xl border border-line-strong bg-surface-raised px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
             />
             {birthDate && (
-              <span className="text-[13px] text-ink/50">{formatAge(ageInMonths(birthDate))} old</span>
+              <span className="text-[13px] text-muted">{formatAge(ageInMonths(birthDate))} old</span>
             )}
           </label>
 
@@ -334,10 +334,10 @@ export default function SettingsClient() {
       )}
 
       {baby && role === 'owner' && (
-        <section className="mt-8 flex flex-col gap-8 rounded-2xl border border-ink/15 px-6 py-8">
+        <section className="mt-8 flex flex-col gap-8 rounded-2xl border border-line bg-surface px-6 py-8">
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Caregivers</span>
-            <p className="text-[13px] text-ink/50">
+            <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Caregivers</span>
+            <p className="text-[13px] text-muted">
               They sign in with Google using this email and see the same baby.
             </p>
           </div>
@@ -347,7 +347,7 @@ export default function SettingsClient() {
               {caregivers.map((c) => (
                 <li
                   key={c.email}
-                  className="flex items-center justify-between border-t border-ink/15 pt-3 first:border-t-0 first:pt-0"
+                  className="flex items-center justify-between border-t border-line pt-3 first:border-t-0 first:pt-0"
                 >
                   <span className="text-[15px] text-ink">{c.email}</span>
                   <button
@@ -356,7 +356,7 @@ export default function SettingsClient() {
                     disabled={inviteBusy}
                     className={clsx(
                       'text-[11px] tracking-[0.15em] uppercase transition-colors disabled:opacity-50',
-                      confirmRemove === c.email ? 'text-orange' : 'text-ink/40'
+                      confirmRemove === c.email ? 'text-orange' : 'text-subtle'
                     )}
                   >
                     {confirmRemove === c.email ? 'Confirm' : 'Remove'}
@@ -370,7 +370,7 @@ export default function SettingsClient() {
 
           <form onSubmit={handleInvite} className="flex flex-col gap-3">
             <label className="flex flex-col gap-2">
-              <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Invite by email</span>
+              <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Invite by email</span>
               <input
                 type="email"
                 inputMode="email"
@@ -378,13 +378,13 @@ export default function SettingsClient() {
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="h-12 rounded-xl border border-ink/15 bg-transparent px-4 text-[16px] text-ink placeholder:text-ink/30 focus:border-orange focus:outline-none"
+                className="h-12 rounded-xl border border-line-strong bg-surface-raised px-4 text-[16px] text-ink placeholder:text-subtle focus:border-orange focus:outline-none"
               />
             </label>
             <button
               type="submit"
               disabled={inviteBusy || !inviteEmail.trim()}
-              className="h-12 rounded-full border border-ink/15 text-[13px] tracking-[0.1em] uppercase text-ink transition-colors disabled:opacity-50"
+              className="h-12 rounded-full border border-line-strong text-[13px] tracking-[0.1em] uppercase text-ink transition-colors disabled:opacity-50"
             >
               {inviteBusy ? 'Inviting…' : 'Invite'}
             </button>
@@ -395,12 +395,12 @@ export default function SettingsClient() {
       <button
         type="button"
         onClick={() => signOut({ callbackUrl: '/login' })}
-        className="mt-8 h-14 w-full rounded-full border border-ink/15 text-[15px] tracking-[0.02em] text-ink transition-colors active:bg-ink/5"
+        className="mt-8 h-14 w-full rounded-full border border-line-strong text-[15px] tracking-[0.02em] text-ink transition-colors active:bg-sand/50"
       >
         Sign out
       </button>
 
-      <p className="mt-10 text-center text-[11px] tracking-[0.2em] uppercase text-ink/30">
+      <p className="mt-10 text-center text-[11px] tracking-[0.2em] uppercase text-subtle">
         Track Sleeper &middot; {APP_VERSION}
       </p>
 
@@ -411,9 +411,9 @@ export default function SettingsClient() {
 
 function PreferenceToggle({ label, description, checked, disabled, onChange }: { label: string; description: string; checked: boolean; disabled: boolean; onChange: () => void }) {
   return (
-    <div className="mt-5 flex items-center justify-between gap-4 border-t border-ink/10 pt-5">
-      <div><p className="text-sm font-medium text-ink">{label}</p><p className="mt-1 text-xs leading-relaxed text-ink/45">{description}</p></div>
-      <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onChange} className={clsx('relative h-8 w-14 shrink-0 rounded-full transition-colors', checked ? 'bg-sage' : 'bg-ink/15')}><span className={clsx('absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform', checked && 'translate-x-6')} /></button>
+    <div className="mt-5 flex items-center justify-between gap-4 border-t border-line pt-5">
+      <div><p className="text-sm font-medium text-ink">{label}</p><p className="mt-1 text-xs leading-relaxed text-muted">{description}</p></div>
+      <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={onChange} className={clsx('relative h-8 w-14 shrink-0 rounded-full transition-colors', checked ? 'bg-sage' : 'bg-line-strong')}><span className={clsx('absolute left-1 top-1 h-6 w-6 rounded-full bg-cream shadow-sm transition-transform', checked && 'translate-x-6')} /></button>
     </div>
   )
 }

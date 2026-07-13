@@ -18,7 +18,7 @@ export default function BottomNav() {
   return (
     <nav
       aria-label="Main navigation"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-cream/95 backdrop-blur-xl"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-cream/95 backdrop-blur-xl"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="mx-auto flex max-w-md items-stretch justify-around">
@@ -32,10 +32,10 @@ export default function BottomNav() {
               aria-current={active ? 'page' : undefined}
               className={clsx(
                 'flex min-h-[62px] flex-1 flex-col items-center justify-center gap-1 py-2 transition-colors',
-                active ? 'text-sage' : 'text-ink/45'
+                active ? 'text-sage' : 'text-muted'
               )}
             >
-              <Icon aria-hidden="true" size={20} strokeWidth={active ? 2.4 : 1.8} />
+              <span className="bottom-nav-icon"><Icon aria-hidden="true" size={20} strokeWidth={active ? 2.4 : 1.8} /></span>
               <span className="text-[11px] font-medium">
                 {item.label}
               </span>

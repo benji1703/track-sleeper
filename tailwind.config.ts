@@ -8,13 +8,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Kept under the existing semantic names to avoid a noisy class
-        // migration. The values form a low-glare evening palette.
-        orange: '#C66A5A',
-        cream: '#F5F3EE',
-        ink: '#273238',
-        sand: '#DDDCD4',
-        sage: '#6E8B82',
+        // CSS-backed semantic colors make every existing utility respond to
+        // system and user-selected appearance without component-level hacks.
+        orange: 'rgb(var(--color-orange) / <alpha-value>)',
+        cream: 'rgb(var(--color-cream) / <alpha-value>)',
+        ink: 'rgb(var(--color-ink) / <alpha-value>)',
+        muted: 'rgb(var(--color-muted) / <alpha-value>)',
+        subtle: 'rgb(var(--color-subtle) / <alpha-value>)',
+        sand: 'rgb(var(--color-sand) / <alpha-value>)',
+        sage: 'rgb(var(--color-sage) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        'surface-raised': 'rgb(var(--color-surface-raised) / <alpha-value>)',
+        line: 'rgb(var(--color-line) / <alpha-value>)',
+        'line-strong': 'rgb(var(--color-line-strong) / <alpha-value>)',
+        'on-accent': 'rgb(var(--color-on-accent) / <alpha-value>)',
+        overlay: 'rgb(var(--color-overlay) / <alpha-value>)',
       },
       fontFamily: {
         // Loaded through next/font in app/layout.tsx.

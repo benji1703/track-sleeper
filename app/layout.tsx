@@ -42,8 +42,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F5F3EE' },
-    { media: '(prefers-color-scheme: dark)', color: '#111817' },
+    { media: '(prefers-color-scheme: light)', color: '#F7F3EA' },
+    { media: '(prefers-color-scheme: dark)', color: '#101715' },
   ],
 }
 
@@ -53,7 +53,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${frankRuhlLibre.variable} ${inter.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${frankRuhlLibre.variable} ${inter.variable}`}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "try{var a=localStorage.getItem('sommeil:appearance');if(a==='dark'||a==='light'||a==='automatic')document.documentElement.dataset.appearance=a}catch(e){}",
+          }}
+        />
+      </head>
       <body className="bg-cream text-ink font-sans min-h-dvh antialiased">
         <Providers>{children}</Providers>
       </body>

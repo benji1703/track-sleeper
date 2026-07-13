@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import BottomNav from '@/components/BottomNav'
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={clsx('animate-pulse rounded-xl bg-ink/8', className)} />
+  return <div aria-hidden="true" className={clsx('app-skeleton rounded-xl', className)} />
 }
 
 export function LoadErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
@@ -24,7 +24,7 @@ type PageSkeletonVariant = 'tracker' | 'history' | 'settings'
 
 export function PageSkeleton({ variant }: { variant: PageSkeletonVariant }) {
   return (
-    <main className="mx-auto min-h-dvh max-w-md px-6 pb-28 pt-10">
+    <main className="page-shell app-page-loading" aria-label="Loading" aria-busy="true">
       {variant === 'tracker' && <TrackerSkeletonBody />}
       {variant === 'history' && <HistorySkeletonBody />}
       {variant === 'settings' && <SettingsSkeletonBody />}
@@ -41,20 +41,20 @@ function TrackerSkeletonBody() {
         <Skeleton className="h-7 w-32" />
       </header>
 
-      <div className="flex flex-col items-center gap-8 rounded-2xl border border-ink/15 px-6 py-8">
+      <div className="flex flex-col items-center gap-8 rounded-2xl border border-line bg-surface px-6 py-8">
         <div className="flex flex-col items-center gap-3">
           <Skeleton className="h-5 w-24 rounded-full" />
           <Skeleton className="h-10 w-44" />
           <Skeleton className="h-3 w-36" />
         </div>
-        <Skeleton className="h-11 w-full rounded-full bg-sand/60" />
-        <Skeleton className="h-14 w-full rounded-full bg-sand/60" />
+        <Skeleton className="h-11 w-full rounded-full" />
+        <Skeleton className="h-14 w-full rounded-full" />
       </div>
 
       <section className="mt-10 flex flex-col gap-4">
         <Skeleton className="h-3 w-14" />
-        <Skeleton className="h-8 w-full rounded-full bg-sand/60" />
-        <div className="flex items-baseline justify-between border-t border-ink/15 pt-4">
+        <Skeleton className="h-8 w-full rounded-full" />
+        <div className="flex items-baseline justify-between border-t border-line pt-4">
           <div className="flex flex-col gap-2">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-7 w-16" />
@@ -78,11 +78,11 @@ function HistorySkeletonBody() {
       </header>
 
       <section className="mb-8 grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-2 rounded-2xl border border-ink/15 px-5 py-4">
+        <div className="flex flex-col gap-2 rounded-2xl border border-line bg-surface px-5 py-4">
           <Skeleton className="h-3 w-20" />
           <Skeleton className="h-8 w-16" />
         </div>
-        <div className="flex flex-col gap-2 rounded-2xl border border-ink/15 px-5 py-4">
+        <div className="flex flex-col gap-2 rounded-2xl border border-line bg-surface px-5 py-4">
           <Skeleton className="h-3 w-16" />
           <Skeleton className="h-8 w-10" />
         </div>
@@ -95,7 +95,7 @@ function HistorySkeletonBody() {
               <Skeleton className="h-3 w-16" />
               <Skeleton className="h-5 w-12" />
             </div>
-            <Skeleton className="h-6 w-full rounded-full bg-sand/60" />
+            <Skeleton className="h-6 w-full rounded-full" />
           </li>
         ))}
       </ul>
@@ -110,7 +110,7 @@ function SettingsSkeletonBody() {
         <Skeleton className="h-7 w-28" />
       </header>
 
-      <div className="flex flex-col gap-8 rounded-2xl border border-ink/15 px-6 py-8">
+      <div className="flex flex-col gap-8 rounded-2xl border border-line bg-surface px-6 py-8">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-3 w-12" />
           <Skeleton className="h-12 w-full rounded-xl" />
@@ -119,7 +119,7 @@ function SettingsSkeletonBody() {
           <Skeleton className="h-3 w-20" />
           <Skeleton className="h-12 w-full rounded-xl" />
         </div>
-        <Skeleton className="h-14 w-full rounded-full bg-sand/60" />
+        <Skeleton className="h-14 w-full rounded-full" />
       </div>
     </>
   )

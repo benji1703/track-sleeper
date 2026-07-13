@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import clsx from 'clsx'
+import { Clock3, Moon, Pencil, Sun } from 'lucide-react'
 import type { SleepSession, SleepType } from '@/types'
 import { dailyStats } from '@/lib/sleepModel'
-import { fmtDuration, fmtDate } from '@/lib/format'
+import { fmtDuration, fmtDate, fmtTime } from '@/lib/format'
 import BottomNav from '@/components/BottomNav'
 import { PageSkeleton, LoadErrorCard } from '@/components/Skeleton'
 import { TZ, dayBoundsInTz, dateISOInTz } from '@/components/timeUtils'
@@ -82,9 +83,12 @@ export default function HistoryClient() {
             session: s,
             leftPct: ((clippedStart.getTime() - dayStart.getTime()) / daySpanMs) * 100,
             widthPct: ((clippedEnd.getTime() - clippedStart.getTime()) / daySpanMs) * 100,
+            clippedStart,
+            clippedEnd,
           }
         })
-        .filter((s): s is { session: SleepSession; leftPct: number; widthPct: number } => s !== null)
+        .filter((s): s is { session: SleepSession; leftPct: number; widthPct: number; clippedStart: Date; clippedEnd: Date } => s !== null)
+        .sort((a, b) => a.clippedStart.getTime() - b.clippedStart.getTime())
 
       const stats = dailyStats(sessions, dayISO, TZ)
       return { dayISO, dayStart, segments, stats }
@@ -261,15 +265,18 @@ export default function HistoryClient() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh max-w-md px-6 pb-28 pt-10">
-      <header className="mb-8 flex items-baseline justify-between">
-        <h1 className="font-serif text-2xl text-ink">Timeline</h1>
+    <main className="page-shell timeline-page">
+      <header className="timeline-header">
+        <div>
+          <p className="label">Last {DAYS_BACK} days</p>
+          <h1 className="font-serif text-3xl text-ink">Sleep timeline</h1>
+        </div>
         <button
           type="button"
           onClick={openAddForm}
-          className="text-[11px] tracking-[0.2em] uppercase text-orange"
+          className="timeline-add"
         >
-          + Add manually
+          <span aria-hidden="true">＋</span> Add
         </button>
       </header>
 
@@ -280,22 +287,22 @@ export default function HistoryClient() {
       )}
 
       {weekDaysWithData >= 3 && (
-        <section className="mb-8 grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1 rounded-2xl border border-ink/15 px-5 py-4">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">7-day avg sleep</span>
-            <span className="font-serif text-3xl font-bold tabular-nums text-ink">{fmtDuration(weekAvg.avgTotalMin)}</span>
+        <section className="timeline-summary">
+          <div>
+            <span>7-day average</span>
+            <strong>{fmtDuration(weekAvg.avgTotalMin)}</strong>
           </div>
-          <div className="flex flex-col gap-1 rounded-2xl border border-ink/15 px-5 py-4">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Avg naps/day</span>
-            <span className="font-serif text-3xl font-bold tabular-nums text-ink">{weekAvg.avgNaps.toFixed(1)}</span>
+          <div>
+            <span>Average naps</span>
+            <strong>{weekAvg.avgNaps.toFixed(1)}<small>/day</small></strong>
           </div>
         </section>
       )}
 
       {!hasAnySessions ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-ink/15 px-6 py-10 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-line bg-surface px-6 py-10 text-center">
           <h2 className="font-serif text-2xl text-ink">No sleep recorded yet</h2>
-          <p className="text-[13px] text-ink/50">
+          <p className="text-[13px] text-muted">
             Start a session to see it show up here.
           </p>
           <Link
@@ -306,68 +313,93 @@ export default function HistoryClient() {
           </Link>
         </div>
       ) : (
-        <ul className="flex flex-col gap-5">
+        <ul className="timeline-days">
           {daysWithData.map((day) => (
-            <li key={day.dayISO} className="flex flex-col gap-2">
-              <div className="flex items-baseline justify-between">
-                <span className="text-[13px] text-ink/70">{fmtDate(day.dayStart)}</span>
-                <span className="font-serif text-lg font-bold tabular-nums text-ink">{fmtDuration(day.stats.totalMin)}</span>
-              </div>
-              <div className="relative h-6 overflow-hidden rounded-full border border-ink/15 bg-sand/40">
+            <li key={day.dayISO} className="timeline-day">
+              <header>
+                <div>
+                  <span>{dateISOInTz(new Date(), TZ) === day.dayISO ? 'Today' : fmtDate(day.dayStart)}</span>
+                  <small>{day.stats.napCount} nap{day.stats.napCount === 1 ? '' : 's'}</small>
+                </div>
+                <strong>{fmtDuration(day.stats.totalMin)}</strong>
+              </header>
+
+              <div className="timeline-rail" aria-label={`24-hour sleep overview for ${fmtDate(day.dayStart)}`}>
+                <div className="timeline-grid" aria-hidden="true"><i /><i /><i /></div>
                 {day.segments.map((seg, i) => (
                   <button
                     key={`${seg.session.id}-${i}`}
                     type="button"
                     onClick={() => openDetail(seg.session)}
-                    className={clsx(
-                      'absolute inset-y-0',
-                      seg.session.type === 'night' ? 'bg-ink' : 'bg-orange'
-                    )}
+                    className="timeline-segment"
+                    data-type={seg.session.type}
                     style={{ left: `${seg.leftPct}%`, width: `${Math.max(seg.widthPct, 0.6)}%` }}
-                    aria-label={`${seg.session.type} sleep segment`}
+                    aria-label={`Edit ${seg.session.type} from ${fmtTime(seg.clippedStart)} to ${fmtTime(seg.clippedEnd)}`}
                   />
                 ))}
               </div>
+
+              <div className="timeline-axis" aria-hidden="true"><span>12a</span><span>6a</span><span>12p</span><span>6p</span><span>12a</span></div>
+
+              <ol className="timeline-session-list">
+                {day.segments.map((seg, index) => {
+                  const Icon = seg.session.type === 'night' ? Moon : Sun
+                  const duration = (seg.clippedEnd.getTime() - seg.clippedStart.getTime()) / 60_000
+                  return (
+                    <li key={`${seg.session.id}-row-${index}`}>
+                      <button type="button" onClick={() => openDetail(seg.session)}>
+                        <span className="timeline-session-icon" data-type={seg.session.type}><Icon size={17} strokeWidth={2} /></span>
+                        <span className="timeline-session-copy">
+                          <strong>{seg.session.type === 'night' ? 'Night sleep' : 'Nap'}</strong>
+                          <small><Clock3 size={12} /> {fmtTime(seg.clippedStart)}–{fmtTime(seg.clippedEnd)}</small>
+                        </span>
+                        <span className="timeline-session-duration">{fmtDuration(duration)}</span>
+                        <Pencil className="timeline-edit-icon" size={15} aria-hidden="true" />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ol>
             </li>
           ))}
         </ul>
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-end bg-ink/30 backdrop-blur-[2px]" onClick={closeDetail}>
+        <div className="fixed inset-0 z-50 flex items-end bg-overlay/55 backdrop-blur-[2px]" onClick={closeDetail}>
           <form
             onSubmit={handleEdit}
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-sleep-title"
-            className="history-editor mx-auto max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-[28px] border-t border-ink/15 bg-cream px-5 pt-3"
+            className="history-editor mx-auto max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-[28px] border-t border-line bg-surface px-5 pt-3"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-ink/15" />
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line-strong" />
             <div className="mb-5 flex items-center justify-between">
-              <button type="button" onClick={closeDetail} className="min-h-11 px-2 text-sm text-ink/55">Cancel</button>
+              <button type="button" onClick={closeDetail} className="min-h-11 px-2 text-sm text-muted">Cancel</button>
               <h2 id="edit-sleep-title" className="font-serif text-xl text-ink">Edit sleep</h2>
               <button type="submit" disabled={busy} className="min-h-11 px-2 text-sm font-semibold text-orange disabled:opacity-50">Save</button>
             </div>
 
-            <div className="mb-5 flex items-center justify-center gap-1 rounded-xl bg-ink/5 p-1" aria-label="Sleep type">
+            <div className="mb-5 flex items-center justify-center gap-1 rounded-xl bg-sand/55 p-1" aria-label="Sleep type">
               {(['nap', 'night'] as SleepType[]).map((type) => (
-                <button key={type} type="button" onClick={() => setEditType(type)} className={clsx('min-h-11 flex-1 rounded-lg text-sm font-medium capitalize', editType === type ? 'bg-white text-ink shadow-sm' : 'text-ink/50')}>{type === 'night' ? 'Night sleep' : 'Nap'}</button>
+                <button key={type} type="button" onClick={() => setEditType(type)} className={clsx('min-h-11 flex-1 rounded-lg text-sm font-medium capitalize', editType === type ? 'bg-surface-raised text-ink shadow-sm' : 'text-muted')}>{type === 'night' ? 'Night sleep' : 'Nap'}</button>
               ))}
             </div>
 
             <TimeEditor label="Fell asleep" value={editStart} onChange={setEditStart} onAdjust={(minutes) => adjustEdit('start', minutes)} />
             <TimeEditor label={editEnd ? 'Woke up' : 'Still sleeping'} value={editEnd} onChange={setEditEnd} onAdjust={(minutes) => adjustEdit('end', minutes)} allowEmpty />
 
-            <div className="my-5 rounded-xl border border-ink/10 bg-white/30 px-4 py-3 text-center">
+            <div className="my-5 rounded-xl border border-line bg-surface-raised px-4 py-3 text-center">
               <span className="label">Duration</span>
               <p className="mt-1 font-serif text-2xl text-ink">{editDurationMin !== null && editDurationMin > 0 ? fmtDuration(editDurationMin) : editEnd ? 'Check times' : 'Ongoing'}</p>
             </div>
 
             {editError && <p role="alert" className="mb-4 rounded-xl bg-orange/10 px-4 py-3 text-sm text-orange">{editError}</p>}
 
-            <button type="button" onClick={handleDelete} disabled={busy} className={clsx('min-h-12 w-full rounded-xl text-sm font-medium transition-colors disabled:opacity-50', confirmDelete ? 'bg-orange text-white' : 'text-orange')}>{confirmDelete ? 'Tap again to delete' : 'Delete sleep'}</button>
+            <button type="button" onClick={handleDelete} disabled={busy} className={clsx('min-h-12 w-full rounded-xl text-sm font-medium transition-colors disabled:opacity-50', confirmDelete ? 'bg-orange text-on-accent' : 'text-orange')}>{confirmDelete ? 'Tap again to delete' : 'Delete sleep'}</button>
           </form>
         </div>
       )}
@@ -375,49 +407,49 @@ export default function HistoryClient() {
       {recentEdit && <div className="undo-toast" role="status"><span>Sleep updated</span><button type="button" onClick={undoEdit}>Undo</button></div>}
 
       {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-end bg-ink/20" onClick={() => setShowAdd(false)}>
+        <div className="fixed inset-0 z-50 flex items-end bg-overlay/55" onClick={() => setShowAdd(false)}>
           <form
             onSubmit={handleAddManual}
-            className="mx-auto flex w-full max-w-md flex-col gap-6 rounded-t-2xl border-t border-ink/15 bg-cream p-6"
+            className="mx-auto flex w-full max-w-md flex-col gap-6 rounded-t-2xl border-t border-line bg-surface p-6"
             style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">
+              <span className="text-[11px] tracking-[0.2em] uppercase text-muted">
                 Add sleep session
               </span>
               <button
                 type="button"
                 onClick={() => setShowAdd(false)}
-                className="text-[11px] tracking-[0.2em] uppercase text-ink/50"
+                className="text-[11px] tracking-[0.2em] uppercase text-muted"
               >
                 Close
               </button>
             </div>
 
             <label className="flex flex-col gap-2">
-              <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Start</span>
+              <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Start</span>
               <input
                 type="datetime-local"
                 value={manualStart}
                 onChange={(e) => setManualStart(e.target.value)}
                 required
-                className="h-12 rounded-xl border border-ink/15 bg-transparent px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
+                className="h-12 rounded-xl border border-line-strong bg-surface-raised px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
               />
             </label>
 
             <label className="flex flex-col gap-2">
-              <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">End</span>
+              <span className="text-[11px] tracking-[0.2em] uppercase text-muted">End</span>
               <input
                 type="datetime-local"
                 value={manualEnd}
                 onChange={(e) => setManualEnd(e.target.value)}
                 required
-                className="h-12 rounded-xl border border-ink/15 bg-transparent px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
+                className="h-12 rounded-xl border border-line-strong bg-surface-raised px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
               />
             </label>
 
-            <div className="flex items-center justify-center gap-1 rounded-full border border-ink/15 p-1">
+            <div className="flex items-center justify-center gap-1 rounded-full border border-line-strong bg-sand/40 p-1">
               {(['nap', 'night'] as SleepType[]).map((t) => (
                 <button
                   key={t}
@@ -425,7 +457,7 @@ export default function HistoryClient() {
                   onClick={() => setManualType(t)}
                   className={clsx(
                     'flex-1 rounded-full py-2 text-[11px] tracking-[0.2em] uppercase transition-colors',
-                    manualType === t ? 'bg-ink text-cream' : 'text-ink/50'
+                    manualType === t ? 'bg-ink text-cream' : 'text-muted'
                   )}
                 >
                   {t}
@@ -463,10 +495,10 @@ function TimeEditor({
   allowEmpty?: boolean
 }) {
   return (
-    <fieldset className="history-time-editor mb-4 rounded-2xl border border-ink/10 p-4">
+    <fieldset className="history-time-editor mb-4 rounded-2xl border border-line bg-surface-raised p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <legend className="label">{label}</legend>
-        {allowEmpty && value && <button type="button" onClick={() => onChange('')} className="min-h-11 px-2 text-xs text-ink/50">Mark ongoing</button>}
+        {allowEmpty && value && <button type="button" onClick={() => onChange('')} className="min-h-11 px-2 text-xs text-muted">Mark ongoing</button>}
       </div>
       <input
         type="datetime-local"
@@ -474,11 +506,11 @@ function TimeEditor({
         onChange={(event) => onChange(event.target.value)}
         required={!allowEmpty}
         max={toDatetimeLocal(new Date())}
-        className="h-14 w-full rounded-xl border border-ink/10 bg-white/30 px-3 text-[17px] font-medium tabular-nums text-ink"
+        className="h-14 w-full rounded-xl border border-line-strong bg-surface px-3 text-[17px] font-medium tabular-nums text-ink"
       />
       <div className="mt-3 grid grid-cols-4 gap-2" aria-label={`Adjust ${label.toLowerCase()}`}>
         {[-15, -5, 5, 15].map((minutes) => (
-          <button key={minutes} type="button" onClick={() => onAdjust(minutes)} className="min-h-11 rounded-xl bg-ink/5 px-1 text-xs font-medium text-ink/60">
+          <button key={minutes} type="button" onClick={() => onAdjust(minutes)} className="min-h-11 rounded-xl bg-sand/55 px-1 text-xs font-medium text-muted">
             {minutes > 0 ? '+' : '−'}{Math.abs(minutes)}m
           </button>
         ))}

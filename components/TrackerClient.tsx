@@ -177,13 +177,13 @@ function MacTimePicker({
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex overflow-hidden rounded-lg border border-ink/15">
+      <div className="flex overflow-hidden rounded-lg border border-line-strong">
         <button
           type="button"
           onClick={() => setDay(today)}
           className={clsx(
             'px-3 py-2 text-[11px] tracking-[0.1em] uppercase transition-colors',
-            isToday ? 'bg-ink text-cream' : 'bg-transparent text-ink/50'
+            isToday ? 'bg-ink text-cream' : 'bg-transparent text-muted'
           )}
         >
           Today
@@ -193,14 +193,14 @@ function MacTimePicker({
           onClick={() => setDay(yesterday)}
           className={clsx(
             'px-3 py-2 text-[11px] tracking-[0.1em] uppercase transition-colors',
-            isYesterday ? 'bg-ink text-cream' : 'bg-transparent text-ink/50'
+            isYesterday ? 'bg-ink text-cream' : 'bg-transparent text-muted'
           )}
         >
           Yesterday
         </button>
       </div>
 
-      <div className="flex items-stretch rounded-lg border border-ink/15 bg-white/40">
+      <div className="flex items-stretch rounded-lg border border-line-strong bg-surface-raised">
         <div className="flex items-center gap-[2px] px-3 font-serif text-xl font-bold tabular-nums text-ink">
           <button
             type="button"
@@ -217,7 +217,7 @@ function MacTimePicker({
           >
             {String(date.getHours()).padStart(2, '0')}
           </button>
-          <span className="text-ink/30">:</span>
+          <span className="text-subtle">:</span>
           <button
             type="button"
             tabIndex={0}
@@ -234,12 +234,12 @@ function MacTimePicker({
             {String(date.getMinutes()).padStart(2, '0')}
           </button>
         </div>
-        <div className="flex flex-col divide-y divide-ink/15 border-l border-ink/15">
+        <div className="flex flex-col divide-y divide-line border-l border-line">
           <button
             type="button"
             aria-label="Increase"
             onClick={() => step(1)}
-            className="flex flex-1 items-center justify-center px-2 text-[9px] text-ink/50 hover:text-orange active:bg-ink/5"
+            className="flex flex-1 items-center justify-center px-2 text-[9px] text-muted hover:text-orange active:bg-sand/50"
           >
             ▲
           </button>
@@ -247,7 +247,7 @@ function MacTimePicker({
             type="button"
             aria-label="Decrease"
             onClick={() => step(-1)}
-            className="flex flex-1 items-center justify-center px-2 text-[9px] text-ink/50 hover:text-orange active:bg-ink/5"
+            className="flex flex-1 items-center justify-center px-2 text-[9px] text-muted hover:text-orange active:bg-sand/50"
           >
             ▼
           </button>
@@ -541,33 +541,33 @@ export default function TrackerClient() {
       <main className="flex min-h-dvh flex-col items-center justify-center p-6">
         <form
           onSubmit={handleOnboard}
-          className="flex w-full max-w-xs flex-col gap-8 rounded-2xl border border-ink/15 px-6 py-8"
+          className="flex w-full max-w-xs flex-col gap-8 rounded-2xl border border-line bg-surface px-6 py-8"
         >
           <div className="flex flex-col gap-2 text-center">
-            <p className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Welcome</p>
+            <p className="text-[11px] tracking-[0.2em] uppercase text-muted">Welcome</p>
             <h1 className="font-serif text-2xl text-ink">Tell us about your baby</h1>
           </div>
 
           <label className="flex flex-col gap-2">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Name</span>
+            <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Name</span>
             <input
               type="text"
               value={onboardName}
               onChange={(e) => setOnboardName(e.target.value)}
               placeholder="Baby's name"
               required
-              className="h-12 rounded-xl border border-ink/15 bg-transparent px-4 text-[16px] text-ink placeholder:text-ink/30 focus:border-orange focus:outline-none"
+              className="h-12 rounded-xl border border-line-strong bg-surface-raised px-4 text-[16px] text-ink placeholder:text-subtle focus:border-orange focus:outline-none"
             />
           </label>
 
           <label className="flex flex-col gap-2">
-            <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Birth date</span>
+            <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Birth date</span>
             <input
               type="date"
               value={onboardBirth}
               onChange={(e) => setOnboardBirth(e.target.value)}
               required
-              className="h-12 rounded-xl border border-ink/15 bg-transparent px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
+              className="h-12 rounded-xl border border-line-strong bg-surface-raised px-4 text-[16px] text-ink focus:border-orange focus:outline-none"
             />
           </label>
 
@@ -576,7 +576,7 @@ export default function TrackerClient() {
           <button
             type="submit"
             disabled={busy}
-            className="h-14 rounded-full bg-orange text-[15px] tracking-[0.02em] text-cream transition-opacity disabled:opacity-50"
+            className="h-14 rounded-full bg-orange text-[15px] font-semibold tracking-[0.02em] text-on-accent transition-opacity disabled:opacity-50"
           >
             {busy ? 'Saving…' : 'Start tracking'}
           </button>
@@ -667,7 +667,7 @@ export default function TrackerClient() {
 
       <section className="mt-9 flex flex-col gap-4">
         <p className="label">Today</p>
-        <div className="relative h-8 overflow-hidden rounded-full border border-ink/15 bg-sand/40">
+        <div className="relative h-8 overflow-hidden rounded-full border border-line bg-sand/55">
           {segments.map((seg) => (
             <div
               key={seg.id}
@@ -677,14 +677,14 @@ export default function TrackerClient() {
           ))}
         </div>
         {segments.length === 0 && (
-          <p className="-mt-2 text-[13px] italic text-ink/35">Nothing tracked today yet</p>
+          <p className="-mt-2 text-[13px] italic text-muted">Nothing tracked today yet</p>
         )}
-        <div className="flex justify-between text-[11px] text-ink/35">
+        <div className="flex justify-between text-[11px] text-subtle">
           <span>00:00</span>
           <span>12:00</span>
           <span>24:00</span>
         </div>
-        <div className="flex items-baseline justify-between border-t border-ink/15 pt-4">
+        <div className="flex items-baseline justify-between border-t border-line pt-4">
           <div className="flex flex-col gap-1">
             <span className="label">Total slept</span>
             <span className="font-serif text-2xl font-bold tabular-nums text-ink">{fmtDuration(stats.totalMin)}</span>
@@ -716,40 +716,40 @@ function SleepInfoSheet({ ageMonths, onClose }: { ageMonths: number; onClose: ()
   const info = sleepInfoForAge(ageMonths)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-ink/25" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end bg-overlay/55" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Sleep guidance"
-        className="mx-auto max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-lg border-t border-ink/10 bg-cream px-6 pt-3"
+        className="mx-auto max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-lg border-t border-line bg-surface px-6 pt-3"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-ink/15" />
+        <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-line-strong" />
 
         <p className="label">Sleep guidance</p>
         <h2 className="mb-8 font-serif text-2xl text-ink">{info.label}</h2>
 
-        <dl className="flex flex-col gap-4 border-t border-ink/15 pt-6">
+        <dl className="flex flex-col gap-4 border-t border-line pt-6">
           <InfoRow label="Wake window" value={info.wakeWindow} />
           <InfoRow label="Naps per day" value={info.napsPerDay} />
           <InfoRow label="Night sleep" value={info.nightSleep} />
           <InfoRow label="Total per 24h" value={info.total24h} />
         </dl>
 
-        <p className="mt-8 text-[14px] leading-relaxed text-ink/70">{info.notes}</p>
+        <p className="mt-8 text-[14px] leading-relaxed text-muted">{info.notes}</p>
 
-        <p className="mt-6 text-[12px] italic leading-relaxed text-ink/45">{WAKE_WINDOW_CAVEAT}</p>
+        <p className="mt-6 text-[12px] italic leading-relaxed text-subtle">{WAKE_WINDOW_CAVEAT}</p>
 
-        <div className="mt-8 flex flex-col gap-2 border-t border-ink/15 pt-6">
-          <span className="text-[11px] tracking-[0.2em] uppercase text-ink/50">Sources</span>
+        <div className="mt-8 flex flex-col gap-2 border-t border-line pt-6">
+          <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Sources</span>
           {SLEEP_SOURCES.map((s) => (
             <a
               key={s.url}
               href={s.url}
               target="_blank"
               rel="noreferrer"
-              className="text-[13px] text-ink/60 underline underline-offset-2"
+              className="text-[13px] text-muted underline underline-offset-2"
             >
               {s.label}
             </a>
@@ -796,20 +796,20 @@ function SleepingCard({
       <p className="font-serif text-6xl font-bold tabular-nums text-ink">
         {elapsedH > 0 ? `${elapsedH}:` : ''}
         {String(elapsedM).padStart(2, '0')}
-        <span className="text-3xl font-medium text-ink/40">:{String(elapsedS).padStart(2, '0')}</span>
+        <span className="text-3xl font-medium text-subtle">:{String(elapsedS).padStart(2, '0')}</span>
       </p>
       <button
         type="button"
         onClick={onStop}
         disabled={busy}
-        className="min-h-16 w-full rounded-lg bg-orange px-6 text-base font-semibold text-white transition-colors active:bg-orange/90 disabled:opacity-50"
+        className="min-h-16 w-full rounded-lg bg-orange px-6 text-base font-semibold text-on-accent transition-colors active:bg-orange/90 disabled:opacity-50"
       >
         {busy ? 'Saving…' : 'Baby woke up'}
       </button>
       <button
         type="button"
         onClick={onLearnMore}
-        className="min-h-11 px-3 text-sm text-ink/55 underline underline-offset-4"
+        className="min-h-11 px-3 text-sm text-muted underline underline-offset-4"
       >
         Sleep guidance
       </button>
@@ -873,7 +873,7 @@ function AwakeCard({
         <button
           type="button"
           onClick={onWakeWindowTap}
-          className="min-h-11 px-3 text-sm text-ink/55 underline decoration-ink/25 underline-offset-4"
+          className="min-h-11 px-3 text-sm text-muted underline decoration-line-strong underline-offset-4"
         >
           Wake window {fmtDuration(prediction.wakeWindow.minMin)}–
           {fmtDuration(prediction.wakeWindow.maxMin)} ›
@@ -884,17 +884,17 @@ function AwakeCard({
         type="button"
         onClick={onStart}
         disabled={busy}
-        className="min-h-16 w-full rounded-lg bg-orange px-6 text-base font-semibold text-white transition-colors active:bg-orange/90 disabled:opacity-50"
+        className="min-h-16 w-full rounded-lg bg-orange px-6 text-base font-semibold text-on-accent transition-colors active:bg-orange/90 disabled:opacity-50"
       >
         {busy ? 'Saving…' : 'Start sleep'}
       </button>
 
       <details className="sleep-options text-left">
-        <summary className="mx-auto flex min-h-11 w-fit cursor-pointer list-none items-center px-3 text-sm text-ink/50 underline underline-offset-4">
+        <summary className="mx-auto flex min-h-11 w-fit cursor-pointer list-none items-center px-3 text-sm text-muted underline underline-offset-4">
           Adjust type or start time
         </summary>
-        <div className="mt-3 flex flex-col gap-4 border-t border-ink/10 pt-4">
-          <div className="flex items-center justify-center gap-1 rounded-lg bg-ink/5 p-1" aria-label="Sleep type">
+        <div className="mt-3 flex flex-col gap-4 border-t border-line pt-4">
+          <div className="flex items-center justify-center gap-1 rounded-lg bg-sand/55 p-1" aria-label="Sleep type">
             {(['nap', 'night'] as SleepType[]).map((t) => (
               <button
                 key={t}
@@ -902,7 +902,7 @@ function AwakeCard({
                 onClick={() => onTypeChange(t)}
                 className={clsx(
                   'min-h-11 flex-1 rounded-md px-3 text-sm font-medium capitalize transition-colors',
-                  manualType === t ? 'bg-white text-ink shadow-sm' : 'text-ink/50'
+                  manualType === t ? 'bg-surface-raised text-ink shadow-sm' : 'text-muted'
                 )}
               >
                 {t}
@@ -919,7 +919,7 @@ function AwakeCard({
               <div className="flex justify-center"><MacTimePicker value={retroValue} onChange={onRetroChange} max={nowLocal} /></div>
             </div>
           ) : (
-            <button type="button" onClick={onRetroOpen} className="min-h-11 text-sm text-ink/50 underline underline-offset-4">Started earlier?</button>
+            <button type="button" onClick={onRetroOpen} className="min-h-11 text-sm text-muted underline underline-offset-4">Started earlier?</button>
           )}
         </div>
       </details>
@@ -934,7 +934,7 @@ function InsightCard({ insight }: { insight: Insight }) {
         'flex items-center gap-3 rounded-lg border px-5 py-4 text-sm leading-relaxed',
         insight.severity === 'notable'
           ? 'border-orange/30 bg-orange/5 text-orange'
-          : 'border-ink/15 bg-transparent text-ink/60'
+          : 'border-line bg-surface text-muted'
       )}
     >
       <span>{insight.text}</span>
@@ -955,15 +955,15 @@ function PredictionModelCard({
     model.confidence === 'high' ? 'High' : model.confidence === 'medium' ? 'Medium' : 'Learning'
 
   return (
-    <details className="mt-4 border-b border-ink/10 px-1 py-2">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm text-ink/55">
+    <details className="mt-4 border-b border-line px-1 py-2">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm text-muted">
         <span>How this estimate is calculated</span>
         <span
           className={clsx(
             'rounded-full px-3 py-1 text-xs font-medium',
             model.confidence === 'high' && 'bg-sage/15 text-sage',
-            model.confidence === 'medium' && 'border border-ink/15 text-ink/55',
-            model.confidence === 'low' && 'bg-sand/50 text-ink/45'
+            model.confidence === 'medium' && 'border border-line-strong text-muted',
+            model.confidence === 'low' && 'bg-sand/60 text-muted'
           )}
         >
           {confidenceLabel}
@@ -983,7 +983,7 @@ function PredictionModelCard({
       </div>
 
       {summary.completedCount === 0 && (
-        <p className="mt-4 border-t border-ink/10 pt-3 text-[12px] italic text-ink/40">
+        <p className="mt-4 border-t border-line pt-3 text-[12px] italic text-subtle">
           Log a few completed sleeps to personalize the prediction.
         </p>
       )}
@@ -994,7 +994,7 @@ function PredictionModelCard({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <span className="truncate text-xs text-ink/45">{label}</span>
+      <span className="truncate text-xs text-muted">{label}</span>
       <span className="truncate font-serif text-lg font-bold tabular-nums text-ink">{value}</span>
     </div>
   )
