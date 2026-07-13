@@ -10,7 +10,11 @@ export default withAuth({
         path === '/how-it-works' ||
         path === '/sleep-guide' ||
         path === '/privacy' ||
-        path.startsWith('/api/auth')
+        path === '/docs/mcp' ||
+        path.startsWith('/api/auth') ||
+        path.startsWith('/api/oauth') ||
+        path.startsWith('/.well-known/') ||
+        path === '/mcp'
 
       return isPublic || !!token
     },

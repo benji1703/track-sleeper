@@ -4,6 +4,22 @@ import { signIn } from 'next-auth/react'
 import { Moon } from 'lucide-react'
 
 export default function LoginPage() {
+  function continueWithGoogle() {
+    const requested = new URLSearchParams(window.location.search).get('callbackUrl')
+    let callbackUrl = '/track'
+    if (requested) {
+      try {
+        const candidate = new URL(requested, window.location.origin)
+        if (candidate.origin === window.location.origin) {
+          callbackUrl = `${candidate.pathname}${candidate.search}${candidate.hash}`
+        }
+      } catch {
+        // Keep the safe tracker fallback.
+      }
+    }
+    signIn('google', { callbackUrl })
+  }
+
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center p-6">
       <div className="flex w-full max-w-xs flex-col items-center gap-14">
@@ -16,7 +32,7 @@ export default function LoginPage() {
 
         <button
           type="button"
-          onClick={() => signIn('google', { callbackUrl: '/track' })}
+          onClick={continueWithGoogle}
           className="flex min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-line-strong bg-surface px-6 text-[15px] font-medium text-ink transition-colors active:bg-sand/55"
         >
           <GoogleGlyph />
