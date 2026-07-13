@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Sommeil Sleep Tracker',
     short_name: 'Sommeil',
-    description: "A quiet way to track your baby's sleep.",
+    description: "Adaptive sleep intelligence for families.",
     id: '/track',
     start_url: '/track',
     scope: '/',

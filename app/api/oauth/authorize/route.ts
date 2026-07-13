@@ -38,13 +38,13 @@ function consentPage(clientName: string, consentToken: string) {
   const token = escapeHtml(consentToken)
   return new Response(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Connect Track Sleeper</title></head>
+<title>Connect Sommeil</title></head>
 <body style="margin:0;background:#f6f1e8;color:#29251f;font-family:system-ui,sans-serif">
 <main style="max-width:420px;margin:0 auto;padding:64px 24px">
   <p style="font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:#746d62">Sommeil</p>
   <h1 style="font-family:Georgia,serif;font-size:32px;font-weight:500">Connect ${name}?</h1>
   <p style="line-height:1.6;color:#625c53">This grants read-only access to minimized sleep summaries, patterns, and estimates. Names, emails, notes, exact birth dates, session IDs, and raw session records stay private.</p>
-  <p style="line-height:1.6;color:#625c53">ChatGPT will receive results only when you ask it to use Track Sleeper.</p>
+  <p style="line-height:1.6;color:#625c53">ChatGPT will receive results only when you ask it to use Sommeil.</p>
   <form method="post" action="/api/oauth/authorize" style="display:flex;gap:12px;margin-top:32px">
     <input type="hidden" name="consent_token" value="${token}">
     <button name="decision" value="deny" type="submit" style="flex:1;padding:14px;border:1px solid #c9c0b2;border-radius:999px;background:transparent;color:#29251f">Cancel</button>
@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
     }
   } catch (error) {
     console.error(error)
-    return redirectError(redirectUri, state, 'server_error', 'Track Sleeper could not verify this account.')
+    return redirectError(redirectUri, state, 'server_error', 'Sommeil could not verify this account.')
   }
 
   const consentToken = signConsent({
@@ -189,6 +189,6 @@ export async function POST(req: NextRequest) {
     return await issueCode(payload)
   } catch (error) {
     console.error(error)
-    return redirectError(payload.redirectUri, payload.state, 'server_error', 'Track Sleeper could not complete authorization.')
+    return redirectError(payload.redirectUri, payload.state, 'server_error', 'Sommeil could not complete authorization.')
   }
 }

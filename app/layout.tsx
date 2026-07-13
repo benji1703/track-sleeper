@@ -21,9 +21,19 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Sommeil',
-  description: 'A quiet way to track your baby\'s sleep.',
+  title: {
+    default: 'Sommeil — Adaptive sleep intelligence for families',
+    template: '%s · Sommeil',
+  },
+  description: 'AI-assisted baby sleep tracking with personalized wake windows, calm daily briefings, shared caregiver timelines, and a private ChatGPT connection.',
   applicationName: 'Sommeil',
+  metadataBase: new URL(process.env.NEXTAUTH_URL || 'https://sleep.arbibe.dev'),
+  openGraph: {
+    title: 'Sommeil — Understand sleep. Rest easier.',
+    description: 'Adaptive sleep intelligence for families, from one-tap tracking to private ChatGPT conversations.',
+    type: 'website',
+    siteName: 'Sommeil',
+  },
   manifest: '/manifest.webmanifest',
   formatDetection: { telephone: false },
   appleWebApp: {

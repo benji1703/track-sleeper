@@ -23,10 +23,10 @@ export default function MarketingPage({
       </header>
       <div className="marketing-content">{children}</div>
       <section className="marketing-cta">
-        <h2>Keep the night simple.</h2>
+        <h2>Understand tonight. Learn from tomorrow.</h2>
         <Link href="/login">Start tracking <ArrowRight size={18} /></Link>
       </section>
-      <footer className="landing-footer"><span>Sommeil</span><div><Link href="/privacy">Privacy</Link><Link href="/sleep-guide">Sleep guide</Link><span>2026</span></div></footer>
+      <footer className="landing-footer"><div className="landing-footer-brand"><span>Sommeil</span><small>Adaptive sleep intelligence for families.</small></div><div><Link href="/how-it-works">Product</Link><Link href="/sleep-guide">Sleep guide</Link><Link href="/docs/mcp">ChatGPT & MCP</Link><Link href="/privacy">Privacy</Link><span>© 2026 Sommeil</span></div></footer>
     </main>
   )
 }

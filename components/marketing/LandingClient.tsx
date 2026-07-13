@@ -5,7 +5,18 @@ import Link from 'next/link'
 import { useGSAP } from '@gsap/react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { ArrowRight, BellRing, ChartNoAxesCombined, Check, Moon, Sparkles } from 'lucide-react'
+import {
+  ArrowRight,
+  BrainCircuit,
+  ChartNoAxesCombined,
+  Check,
+  LockKeyhole,
+  MessagesSquare,
+  Moon,
+  PlugZap,
+  Sparkles,
+  Users,
+} from 'lucide-react'
 import PublicHeader from '@/components/marketing/PublicHeader'
 
 gsap.registerPlugin(useGSAP, ScrollTrigger)
@@ -97,17 +108,21 @@ export default function LandingClient() {
         <PublicHeader inverse />
         <div className="landing-hero-inner">
           <div className="landing-copy">
-            <p data-hero-copy className="landing-kicker">Baby sleep, gently understood</p>
-            <h1 data-hero-copy>Sommeil</h1>
+            <p data-hero-copy className="landing-kicker"><Sparkles size={14} /> Adaptive sleep intelligence for families</p>
+            <h1 data-hero-copy>Understand sleep.<br /><em>Rest easier.</em></h1>
             <p data-hero-copy className="landing-lede">
-              One tap when sleep starts. One tap when it ends. A calmer rhythm for nights when
-              thinking is the last thing you need.
+              Sommeil turns effortless sleep tracking into personalized windows, clear daily
+              briefings, and answers you can explore with AI.
             </p>
             <div data-hero-copy className="landing-actions">
               <Link href="/login" className="landing-primary">
-                Start tracking <ArrowRight aria-hidden="true" size={18} />
+                Start for free <ArrowRight aria-hidden="true" size={18} />
               </Link>
-              <Link href="/how-it-works" className="landing-secondary">See how it works</Link>
+              <Link href="/docs/mcp" className="landing-secondary"><MessagesSquare size={17} /> Use with ChatGPT</Link>
+            </div>
+            <div data-hero-copy className="landing-assurance">
+              <span><Check size={13} /> No card required</span>
+              <span><LockKeyhole size={13} /> Private by design</span>
             </div>
           </div>
 
@@ -136,55 +151,93 @@ export default function LandingClient() {
                 <div className="phone-home-indicator" />
               </div>
             </div>
+            <div data-phone className="hero-insight-card">
+              <span><BrainCircuit size={14} /> Sommeil insight</span>
+              <strong>Bedtime is trending 18 minutes earlier.</strong>
+              <small>Based on the last 7 recorded nights</small>
+            </div>
           </div>
         </div>
         <a href="#rhythm" className="landing-scroll-cue">Scroll to explore</a>
       </section>
 
+      <div className="landing-capabilities" aria-label="Sommeil capabilities">
+        <span>One-tap tracking</span><i />
+        <span>Adaptive predictions</span><i />
+        <span>AI daily briefings</span><i />
+        <span>ChatGPT via MCP</span>
+      </div>
+
       <section id="rhythm" className="landing-band landing-rhythm">
         <div className="landing-section-heading" data-reveal>
-          <p>Built for 3 a.m.</p>
-          <h2>Less to remember.<br />More to notice.</h2>
+          <p>Sleep intelligence, minus the noise</p>
+          <h2>Built around your baby.<br />Designed around real life.</h2>
         </div>
         <div className="rhythm-list">
-          <article data-reveal><Moon /><span>01</span><h3>Track in one tap</h3><p>The primary action stays large, contextual, and reachable with one hand.</p></article>
-          <article data-reveal><BellRing /><span>02</span><h3>Know what comes next</h3><p>Personalized wake windows learn from your baby’s actual rhythm.</p></article>
-          <article data-reveal><ChartNoAxesCombined /><span>03</span><h3>See patterns quietly</h3><p>Useful trends surface without turning sleep into another performance metric.</p></article>
+          <article data-reveal><Moon /><span>01</span><h3>Capture the moment</h3><p>Start and stop sleep in one tap. The interface stays calm, contextual, and usable with one hand at 3 a.m.</p></article>
+          <article data-reveal><BrainCircuit /><span>02</span><h3>Learn the rhythm</h3><p>Sommeil blends age-aware guidance with your recent history to create adaptive wake-window estimates with visible confidence.</p></article>
+          <article data-reveal><ChartNoAxesCombined /><span>03</span><h3>See what changed</h3><p>Daily briefings turn fragments into evidence-based observations—without diagnosing, judging, or inventing certainty.</p></article>
+          <article data-reveal><Users /><span>04</span><h3>Stay in sync</h3><p>Caregivers share one live timeline, so everyone knows what happened and what may come next.</p></article>
         </div>
       </section>
 
-      <section className="landing-band landing-story">
+      <section id="insights" className="landing-band landing-story">
         <div className="story-copy" data-reveal>
-          <p>From fragments to rhythm</p>
+          <p>From data to a useful next step</p>
           <h2>A whole day, readable in a glance.</h2>
-          <p>Shared tracking keeps every caregiver on the same timeline, while daily totals and sleep stretches stay easy to scan.</p>
-          <Link href="/sleep-guide">Explore the sleep guide <ArrowRight size={17} /></Link>
+          <p>See sleep totals, nap patterns, longest stretches, and the next likely sleep window in one quiet view. Sommeil explains how confident it is, because parents deserve context—not black-box answers.</p>
+          <Link href="/how-it-works">Explore the product <ArrowRight size={17} /></Link>
         </div>
         <div className="story-visual" data-reveal>
           <div className="story-day"><span>6 PM</span><span>Midnight</span><span>6 AM</span></div>
           <div className="story-line"><i data-timeline-fill /></div>
           <div className="story-metrics"><div><small>Total sleep</small><strong>12h 48m</strong></div><div><small>Longest stretch</small><strong>6h 22m</strong></div></div>
+          <div className="story-confidence"><Sparkles size={14} /><span>Prediction confidence</span><strong>Growing</strong></div>
         </div>
       </section>
 
-      <section className="landing-band landing-trust">
-        <div data-reveal>
-          <Check aria-hidden="true" />
-          <h2>Private by design.</h2>
-          <p>Your family’s data stays behind authenticated access. Shared caregivers only see the baby they were invited to.</p>
-          <Link href="/privacy">Read our privacy approach</Link>
+      <section id="chatgpt" className="landing-band landing-chatgpt">
+        <div className="chatgpt-copy" data-reveal>
+          <p><PlugZap size={14} /> ChatGPT plugin · Powered by MCP</p>
+          <h2>Your sleep data can join the conversation.</h2>
+          <p>Connect Sommeil as a private ChatGPT developer-mode plugin through the Model Context Protocol. Ask about recent patterns or the next sleep window using privacy-reduced, read-only tools.</p>
+          <div className="chatgpt-actions">
+            <Link href="/docs/mcp" className="landing-primary">Read the setup guide <ArrowRight size={17} /></Link>
+            <span>No OpenAI API key needed</span>
+          </div>
         </div>
+        <div className="chat-preview" data-reveal aria-label="Example ChatGPT conversation with Sommeil">
+          <div className="chat-preview-top"><span><Sparkles size={14} /> ChatGPT + Sommeil</span><i>Read only</i></div>
+          <div className="chat-bubble chat-bubble-user">How has sleep changed this week?</div>
+          <div className="chat-tool"><PlugZap size={13} /><span>Sommeil · get_sleep_summary</span><Check size={13} /></div>
+          <div className="chat-bubble chat-bubble-ai">Night sleep was more consistent across the last four days. The longest stretch increased, while nap count stayed stable.</div>
+          <div className="chat-preview-note"><LockKeyhole size={13} /> Names, emails, notes, and raw sessions stay private.</div>
+        </div>
+      </section>
+
+      <section id="trust" className="landing-band landing-trust">
+        <div className="landing-section-heading" data-reveal>
+          <p>Trust is part of the product</p>
+          <h2>Thoughtful AI starts with clear boundaries.</h2>
+        </div>
+        <div className="trust-grid">
+          <article data-reveal><LockKeyhole /><h3>Your data is not the product</h3><p>Sommeil does not sell family data or use it for advertising.</p></article>
+          <article data-reveal><BrainCircuit /><h3>AI stays optional</h3><p>Core predictions work without generative AI. AI explanations are opt-in and use minimized aggregates.</p></article>
+          <article data-reveal><Check /><h3>Guidance, not diagnosis</h3><p>Every estimate is framed with confidence and safety context. Sommeil does not provide medical advice.</p></article>
+        </div>
+        <Link data-reveal href="/privacy" className="trust-link">Read the full privacy approach <ArrowRight size={16} /></Link>
       </section>
 
       <section className="landing-final">
         <div data-reveal>
-          <Moon aria-hidden="true" size={34} />
-          <h2>A quieter night starts here.</h2>
+          <span className="landing-final-mark"><Moon aria-hidden="true" size={28} /></span>
+          <p>Start building a clearer picture tonight</p>
+          <h2>More understanding.<br />Less second-guessing.</h2>
           <Link href="/login" className="landing-primary">Continue with Google <ArrowRight size={18} /></Link>
         </div>
       </section>
 
-      <footer className="landing-footer"><span>Sommeil</span><div><Link href="/privacy">Privacy</Link><Link href="/sleep-guide">Sleep guide</Link><span>2026</span></div></footer>
+      <footer className="landing-footer"><div className="landing-footer-brand"><span>Sommeil</span><small>Adaptive sleep intelligence for families.</small></div><div><Link href="/how-it-works">Product</Link><Link href="/sleep-guide">Sleep guide</Link><Link href="/docs/mcp">ChatGPT & MCP</Link><Link href="/privacy">Privacy</Link><span>© 2026 Sommeil</span></div></footer>
     </main>
   )
 }

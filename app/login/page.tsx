@@ -25,7 +25,7 @@ export default function LoginPage() {
       <div className="flex w-full max-w-xs flex-col items-center gap-14">
         <div className="flex flex-col items-center gap-3 text-center">
           <p className="text-sm text-muted">
-            A quiet way to track sleep
+            Adaptive sleep intelligence for families
           </p>
           <h1 className="font-serif text-5xl italic text-ink">Sommeil</h1>
         </div>

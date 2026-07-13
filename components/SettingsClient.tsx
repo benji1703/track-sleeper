@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { signOut } from 'next-auth/react'
+import Link from 'next/link'
 import clsx from 'clsx'
+import { ArrowRight, MessagesSquare, PlugZap } from 'lucide-react'
 import { apiFetch } from '@/lib/apiClient'
 import type { AppPreferences, Baby, CaregiverRole } from '@/types'
 import { ageInMonths } from '@/lib/sleepModel'
 import BottomNav from '@/components/BottomNav'
 import { PageSkeleton, LoadErrorCard } from '@/components/Skeleton'
+import ChatGptMcpGuide from '@/components/ChatGptMcpGuide'
 
 const APP_VERSION = 'v0.1.0'
 const DEFAULT_PREFERENCES: AppPreferences = {
@@ -43,7 +46,7 @@ function formatAge(months: number): string {
     : `${years}y ${remMonths}m`
 }
 
-export default function SettingsClient() {
+export default function SettingsClient({ mcpUrl }: { mcpUrl: string }) {
   const [baby, setBaby] = useState<Baby | null | undefined>(undefined)
   const [role, setRole] = useState<CaregiverRole | null>(null)
   const [caregivers, setCaregivers] = useState<{ email: string }[]>([])
@@ -276,6 +279,28 @@ export default function SettingsClient() {
         </section>
       )}
 
+      <section className="mt-8 rounded-2xl border border-line bg-surface px-5 py-6">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sage/10 text-sage">
+            <MessagesSquare size={19} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="flex items-center gap-1.5 text-[11px] font-medium text-sage"><PlugZap size={12} /> ChatGPT · MCP</p>
+            <h2 className="mt-1 font-serif text-xl text-ink">Talk with your sleep data</h2>
+            <p className="mt-1 text-[13px] leading-relaxed text-muted">Connect Sommeil as a private, read-only ChatGPT plugin. No OpenAI API key is required.</p>
+          </div>
+        </div>
+        <details className="settings-mcp-details mt-5 border-t border-line pt-2">
+          <summary className="flex min-h-12 cursor-pointer items-center justify-between text-sm font-medium text-ink">
+            Setup guide <span className="text-subtle">4 steps</span>
+          </summary>
+          <ChatGptMcpGuide mcpUrl={mcpUrl} compact />
+        </details>
+        <Link href="/docs/mcp" className="mt-4 flex min-h-11 items-center justify-between border-t border-line pt-4 text-sm font-medium text-orange">
+          Open full documentation <ArrowRight size={16} />
+        </Link>
+      </section>
+
       {isCaregiver ? (
         <div className="flex flex-col gap-8 rounded-2xl border border-line bg-surface px-6 py-8">
           <div className="flex flex-col gap-1">
@@ -401,7 +426,7 @@ export default function SettingsClient() {
       </button>
 
       <p className="mt-10 text-center text-[11px] tracking-[0.2em] uppercase text-subtle">
-        Track Sleeper &middot; {APP_VERSION}
+        Sommeil &middot; {APP_VERSION}
       </p>
 
       <BottomNav />

@@ -20,10 +20,10 @@
 7. **Deploy**: `vercel` (link the project, add the same env vars in the Vercel
    dashboard, then `vercel --prod`).
 
-## Private ChatGPT connection (no OpenAI API key)
+## Private ChatGPT plugin via MCP (no OpenAI API key)
 
-The private MCP app lets ChatGPT use your existing ChatGPT plan to discuss
-privacy-reduced sleep aggregates. AI runs in ChatGPT; Track Sleeper makes no
+The private MCP plugin lets ChatGPT use your existing ChatGPT plan to discuss
+privacy-reduced sleep aggregates. AI runs in ChatGPT; Sommeil makes no
 OpenAI API call.
 
 1. Run `supabase/migrations/008_mcp_oauth.sql` in the Supabase SQL editor.
@@ -37,11 +37,13 @@ OpenAI API call.
    - `https://YOUR_DOMAIN/.well-known/oauth-authorization-server`
 6. In ChatGPT, enable **Settings → Security and login → Developer mode**.
 7. Open **Settings → Plugins**, create a developer-mode app, and enter:
-   - Name: `Track Sleeper`
+   - Name: `Sommeil Sleep`
+   - Description: `Private, read-only sleep summaries, patterns, and next-sleep estimates.`
    - MCP server URL: `https://YOUR_DOMAIN/mcp`
    - OAuth registration: dynamic client registration (DCR)
-8. Start a new chat, enable Track Sleeper from the composer, and ask:
-   `Using Track Sleeper, explain the last seven days and estimate the next sleep window.`
+8. Complete the Sommeil Google sign-in and consent flow.
+9. Start a new chat, select Sommeil Sleep from the composer's plugin list, and ask:
+   `Using Sommeil, explain the last seven days and estimate the next sleep window.`
 
 The first tool call opens the Google sign-in flow. Authorization codes are
 single-use PKCE codes; access and refresh tokens are stored only as SHA-256

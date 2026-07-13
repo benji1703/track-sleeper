@@ -56,10 +56,10 @@ const briefingOutputSchema = {
 }
 
 function authenticationRequired() {
-  const challenge = `Bearer resource_metadata="${protectedResourceMetadataUrl()}", error="invalid_token", error_description="Connect your Track Sleeper account to continue"`
+  const challenge = `Bearer resource_metadata="${protectedResourceMetadataUrl()}", error="invalid_token", error_description="Connect your Sommeil account to continue"`
   return {
     isError: true,
-    content: [{ type: 'text' as const, text: 'Authentication required. Connect your Track Sleeper account to continue.' }],
+    content: [{ type: 'text' as const, text: 'Authentication required. Connect your Sommeil account to continue.' }],
     _meta: { 'mcp/www_authenticate': [challenge] },
   }
 }
@@ -84,13 +84,13 @@ async function withSleepData(extra: HandlerExtra, build: (data: NonNullable<Awai
     }
   } catch (error) {
     console.error(error)
-    return { isError: true, content: [{ type: 'text' as const, text: 'Track Sleeper could not load sleep data.' }] }
+    return { isError: true, content: [{ type: 'text' as const, text: 'Sommeil could not load sleep data.' }] }
   }
 }
 
 export function createMcpServer() {
   const server = new McpServer(
-    { name: 'track-sleeper', version: '1.0.0' },
+    { name: 'sommeil-sleep', version: '1.0.0' },
     {
       instructions: 'Use only returned sleep evidence. Never diagnose, prescribe treatment, invent causes, or imply certainty beyond the reported confidence. Clearly distinguish recorded data from estimates and retain the safety caution.',
     }
