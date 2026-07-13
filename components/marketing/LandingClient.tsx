@@ -10,10 +10,12 @@ import {
   BrainCircuit,
   ChartNoAxesCombined,
   Check,
+  History,
   LockKeyhole,
   MessagesSquare,
   Moon,
   PlugZap,
+  Settings,
   Sparkles,
   Users,
 } from 'lucide-react'
@@ -132,29 +134,34 @@ export default function LandingClient() {
               <div className="iphone-screen">
                 <div data-phone-ui className="phone-status"><span>9:41</span><span>5G&nbsp;&nbsp;96%</span></div>
                 <div data-phone-ui className="phone-heading">
-                  <span>Mila</span>
-                  <strong>Awake</strong>
+                  <div><span>Mila</span><small><i /> Up to date</small></div>
+                  <strong>Awake now</strong>
                 </div>
-                <div data-phone-ui className="phone-focus">
-                  <span className="phone-chip"><Sparkles size={12} /> Tired soon</span>
-                  <small>Likely sleepy around</small>
-                  <strong>19:40</strong>
-                  <button type="button" tabIndex={-1}>Wake window 2h–3h</button>
+                <div data-phone-ui className="phone-awake-card">
+                  <div className="phone-focus">
+                    <span className="phone-chip">Tired soon</span>
+                    <small>Likely sleepy around</small>
+                    <strong>19:40</strong>
+                    <button type="button" tabIndex={-1}>Wake window 2h–3h ›</button>
+                  </div>
+                  <div className="phone-start">Start sleep</div>
+                  <div className="phone-adjust">Adjust type or start time</div>
                 </div>
-                <div data-phone-ui className="phone-segment"><span>Nap</span><span>Night</span></div>
-                <div data-phone-ui className="phone-start">Start nap</div>
+                <div data-phone-ui className="phone-estimate"><span>How this estimate is calculated</span><b>Medium</b></div>
+                <div data-phone-ui className="hero-insight-card">Wake windows have been shortening this week</div>
                 <div data-phone-ui className="phone-today">
                   <span>Today</span>
                   <div><i /><i /><i /></div>
-                  <footer><b>3h 42m slept</b><b>2 naps</b></footer>
+                  <aside><span>00:00</span><span>12:00</span><span>24:00</span></aside>
                 </div>
+                <nav data-phone-ui className="phone-nav" aria-label="App preview navigation">
+                  <span><Moon size={13} /><b>Now</b></span>
+                  <span><History size={13} /><b>Timeline</b></span>
+                  <span><ChartNoAxesCombined size={13} /><b>Insights</b></span>
+                  <span><Settings size={13} /><b>Family</b></span>
+                </nav>
                 <div className="phone-home-indicator" />
               </div>
-            </div>
-            <div data-phone className="hero-insight-card">
-              <span><BrainCircuit size={14} /> Sommeil insight</span>
-              <strong>Bedtime is trending 18 minutes earlier.</strong>
-              <small>Based on the last 7 recorded nights</small>
             </div>
           </div>
         </div>
