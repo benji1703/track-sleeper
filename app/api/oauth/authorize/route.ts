@@ -24,7 +24,7 @@ function redirectError(redirectUri: string, state: string | null, error: string,
   url.searchParams.set('error', error)
   url.searchParams.set('error_description', description)
   if (state) url.searchParams.set('state', state)
-  return NextResponse.redirect(url)
+  return NextResponse.redirect(url, 303)
 }
 
 function escapeHtml(value: string): string {
@@ -82,7 +82,7 @@ async function issueCode(payload: ConsentPayload) {
   const callback = new URL(payload.redirectUri)
   callback.searchParams.set('code', code)
   callback.searchParams.set('state', payload.state)
-  return NextResponse.redirect(callback)
+  return NextResponse.redirect(callback, 303)
 }
 
 export async function GET(req: NextRequest) {

@@ -65,6 +65,9 @@ Deleting clients cascades to their authorization codes and tokens.
 - **ChatGPT says OAuth is not implemented:** verify an unauthenticated request
   to `/mcp` returns `401` with a `WWW-Authenticate` header pointing to the
   protected resource metadata endpoint.
+- **ChatGPT callback says Bad Request:** verify the consent form redirects to
+  ChatGPT with `303 See Other`; a `307` incorrectly repeats the consent `POST`
+  against ChatGPT's GET-only OAuth callback.
 - **Login returns to the tracker:** verify the deployment includes the login
   callback handling and that `NEXTAUTH_URL` matches the same deployment.
 - **Access denied:** `MCP_ALLOWED_EMAIL` must match the Google account in
