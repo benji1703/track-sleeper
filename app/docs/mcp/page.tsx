@@ -12,7 +12,7 @@ export default function McpDocsPage() {
         <h2>Connect</h2>
         <p>Enable Developer mode in ChatGPT, create a private developer-mode app, and use this MCP server URL:</p>
         <p><code>{baseUrl}/mcp</code></p>
-        <p>The first sleep-data request asks you to sign in with Google. Access is read-only and can be removed from ChatGPT at any time.</p>
+        <p>ChatGPT asks you to sign in with Google while connecting. Access is read-only and can be removed from ChatGPT at any time.</p>
         <h2>What ChatGPT can receive</h2>
         <p>Daily totals, averages, nap counts, confidence, evidence-bound observations, and an estimated next sleep window. Names, emails, notes, exact birth dates, session IDs, and raw session records are excluded.</p>
         <h2>Try asking</h2>

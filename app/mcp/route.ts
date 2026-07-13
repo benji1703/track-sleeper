@@ -39,11 +39,9 @@ async function handle(req: NextRequest) {
       return withCors(Response.json({ error: 'rate_limited' }, { status: 429 }))
     }
     const authentication = await authenticateMcpRequest(req)
-    if (authentication.status === 'invalid') return unauthorized()
+    if (authentication.status !== 'authenticated') return unauthorized()
 
-    const rateKey = authentication.status === 'authenticated'
-      ? `mcp:${authentication.authInfo.extra?.email}`
-      : `mcp-anonymous:${forwarded}`
+    const rateKey = `mcp:${authentication.authInfo.extra?.email}`
     if (!rateLimit(rateKey, 120, 60_000)) {
       return withCors(Response.json({ error: 'rate_limited' }, { status: 429 }))
     }
@@ -52,7 +50,7 @@ async function handle(req: NextRequest) {
     const server = createMcpServer()
     await server.connect(transport)
     const response = await transport.handleRequest(req, {
-      authInfo: authentication.status === 'authenticated' ? authentication.authInfo : undefined,
+      authInfo: authentication.authInfo,
     })
     return withCors(response)
   } catch (error) {

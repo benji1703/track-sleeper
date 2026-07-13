@@ -19,7 +19,7 @@ and data-control settings.
 
 ## Endpoints
 
-- `POST /mcp` — stateless MCP Streamable HTTP transport
+- `POST /mcp` — OAuth-protected, stateless MCP Streamable HTTP transport
 - `GET /.well-known/oauth-protected-resource` — protected resource metadata
 - `GET /.well-known/oauth-authorization-server` — OAuth server metadata
 - `POST /api/oauth/register` — dynamic client registration
@@ -62,6 +62,9 @@ Deleting clients cascades to their authorization codes and tokens.
 
 - **Metadata fails:** verify `MCP_BASE_URL` exactly matches the deployed HTTPS
   origin and redeploy after changing it.
+- **ChatGPT says OAuth is not implemented:** verify an unauthenticated request
+  to `/mcp` returns `401` with a `WWW-Authenticate` header pointing to the
+  protected resource metadata endpoint.
 - **Login returns to the tracker:** verify the deployment includes the login
   callback handling and that `NEXTAUTH_URL` matches the same deployment.
 - **Access denied:** `MCP_ALLOWED_EMAIL` must match the Google account in
