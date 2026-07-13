@@ -590,7 +590,6 @@ html[data-appearance='dark'] .appearance-moon { opacity: 0; transform: rotate(25
   .public-header { grid-template-columns: 1fr auto 1fr; }
   .public-links { display: flex; }
   .public-actions { justify-self: end; }
-  .landing-hero-inner { grid-template-columns: minmax(0, 1.1fr) minmax(330px, 0.9fr); align-items: center; min-height: calc(92dvh - 72px); padding: 40px 0 60px; }
   .landing-copy h1 { font-size: clamp(66px, 6.2vw, 88px); }
   .phone-stage { align-items: center; min-height: 620px; padding-top: 0; }
   .iphone-shell { width: 306px; height: 620px; }
@@ -604,6 +603,10 @@ html[data-appearance='dark'] .appearance-moon { opacity: 0; transform: rotate(25
   .chatgpt-copy h2 { font-size: 54px; }
   .trust-grid { grid-template-columns: repeat(3, 1fr); }
   .landing-footer { flex-direction: row; align-items: flex-end; }
+}
+
+@media (min-width: 960px) {
+  .landing-hero-inner { grid-template-columns: minmax(0, 1.1fr) minmax(330px, 0.9fr); align-items: center; min-height: calc(92dvh - 72px); padding: 40px 0 60px; }
 }
 
 .insights-page { display: flex; flex-direction: column; gap: 26px; }

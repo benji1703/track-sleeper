@@ -302,7 +302,7 @@ export default function SettingsClient({ mcpUrl }: { mcpUrl: string }) {
       </section>
 
       {isCaregiver ? (
-        <div className="flex flex-col gap-8 rounded-2xl border border-line bg-surface px-6 py-8">
+        <div className="mt-8 flex flex-col gap-8 rounded-2xl border border-line bg-surface px-6 py-8">
           <div className="flex flex-col gap-1">
               <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Baby</span>
             <span className="font-serif text-2xl text-ink">{baby?.name}</span>
@@ -316,7 +316,7 @@ export default function SettingsClient({ mcpUrl }: { mcpUrl: string }) {
           <p className="border-t border-line pt-6 text-[13px] text-muted">Shared with you</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-8 rounded-2xl border border-line bg-surface px-6 py-8">
+        <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-8 rounded-2xl border border-line bg-surface px-6 py-8">
           <label className="flex flex-col gap-2">
             <span className="text-[11px] tracking-[0.2em] uppercase text-muted">Name</span>
             <input
